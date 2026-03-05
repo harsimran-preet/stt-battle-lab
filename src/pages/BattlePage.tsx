@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import {
-  Swords, Play, Loader2, Trophy, Minus, AlertCircle, Clock, FileText, RotateCcw,
+  Swords, Loader2, Trophy, Minus, AlertCircle, Clock, FileText, RotateCcw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type {

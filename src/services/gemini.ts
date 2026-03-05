@@ -165,7 +165,7 @@ export async function transcribeWithGemini(
   const content = [
     { inlineData: { mimeType: file.type || 'audio/mp3', data: base64 } },
     GEMINI_STT_PROMPT,
-  ] as const;
+  ];
 
   if (onChunk) {
     const stream = await model.generateContentStream(content);
