@@ -29,3 +29,23 @@ export const SPEAKER_COLORS = [
 export function getSpeakerColor(speakerIndex: number) {
   return SPEAKER_COLORS[speakerIndex % SPEAKER_COLORS.length];
 }
+
+function escapeCsvCell(value: string | number | null | undefined): string {
+  if (value == null) return '';
+  const str = String(value);
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+export function downloadCsv(rows: (string | number | null | undefined)[][], filename: string) {
+  const csv = rows.map(row => row.map(escapeCsvCell).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}

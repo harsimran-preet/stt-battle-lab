@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import {
-  Swords, Loader2, Trophy, Minus, AlertCircle, Clock, FileText, RotateCcw, Languages,
+  Swords, Loader2, Trophy, Minus, AlertCircle, Clock, FileText, RotateCcw, Languages, Download,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type {
@@ -19,7 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
-import { cn } from '@/lib/utils';
+import { cn, downloadCsv } from '@/lib/utils';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -703,6 +703,49 @@ export default function BattlePage() {
     }
   };
 
+  const handleExportCSV = () => {
+    const rows: (string | number | null)[][] = [];
+    const fileName = file?.name ?? fileNameHint ?? 'battle';
+
+    rows.push(['--- Battle Results ---']);
+    rows.push(['File', fileName]);
+    rows.push(['Slot A', slotLabel(slotAConfig)]);
+    rows.push(['Slot B', slotLabel(slotBConfig)]);
+    rows.push([]);
+
+    // Transcripts
+    rows.push(['--- Transcripts ---']);
+    rows.push(['Side', 'Service', 'Time (s)', 'Word Count', 'Transcript']);
+    const textA = slotAResult.transcript ?? '';
+    const textB = slotBResult.transcript ?? '';
+    rows.push(['A', slotLabel(slotAConfig), slotAResult.timeTakenMs ? (slotAResult.timeTakenMs / 1000).toFixed(2) : null, textA ? textA.trim().split(/\s+/).length : 0, textA]);
+    rows.push(['B', slotLabel(slotBConfig), slotBResult.timeTakenMs ? (slotBResult.timeTakenMs / 1000).toFixed(2) : null, textB ? textB.trim().split(/\s+/).length : 0, textB]);
+    rows.push([]);
+
+    // Verdict
+    if (verdict) {
+      rows.push(['--- Verdict ---']);
+      rows.push(['Winner', verdict.winner === 'tie' ? 'Tie' : verdict.winner === 'A' ? slotLabel(slotAConfig) : slotLabel(slotBConfig)]);
+      rows.push(['Overall Score A', verdict.scoreA]);
+      rows.push(['Overall Score B', verdict.scoreB]);
+      rows.push(['Reasoning A', verdict.reasoningA]);
+      rows.push(['Reasoning B', verdict.reasoningB]);
+      rows.push([]);
+
+      if (verdict.factors?.length) {
+        rows.push(['--- Factor Breakdown ---']);
+        rows.push(['Factor', 'Score A', 'Score B', 'Feedback A', 'Feedback B']);
+        for (const f of verdict.factors) {
+          rows.push([f.factor, f.scoreA, f.scoreB, f.feedbackA, f.feedbackB]);
+        }
+      }
+    }
+
+    downloadCsv(rows, `${fileName}-battle-results.csv`);
+  };
+
+  const canExport = slotAResult.status === 'done' || slotBResult.status === 'done';
+
   return (
     <div className="space-y-6">
       {/* Page header */}
@@ -840,6 +883,12 @@ export default function BattlePage() {
                   <><Languages className="h-3.5 w-3.5" />Translate to English</>
                 )}
               </Button>
+              {canExport && (
+                <Button variant="outline" size="sm" className="gap-2" onClick={handleExportCSV}>
+                  <Download className="h-3.5 w-3.5" />
+                  Export CSV
+                </Button>
+              )}
             </div>
           )}
 

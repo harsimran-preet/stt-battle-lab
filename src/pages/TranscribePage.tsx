@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
+import { downloadCsv, formatTime as fmtTime } from '@/lib/utils';
 
 type Step = 'idle' | 'transcribing' | 'transcript_done' | 'analyzing' | 'done' | 'error';
 
@@ -206,6 +207,49 @@ export default function TranscribePage() {
     URL.revokeObjectURL(url);
   };
 
+  const handleDownloadCSV = () => {
+    if (!transcript) return;
+    const rows: (string | number | null)[][] = [];
+    const fileName = selectedFile?.name ?? fileNameHint ?? 'transcript';
+
+    // Metadata
+    rows.push(['--- Metadata ---']);
+    rows.push(['File', fileName]);
+    rows.push(['Service', modelConfig.sttService]);
+    rows.push(['Duration', fmtTime(transcript.duration)]);
+    rows.push(['Confidence', `${(transcript.confidence * 100).toFixed(1)}%`]);
+    rows.push(['Words', transcript.words.length]);
+    rows.push([]);
+
+    // Analysis scores
+    if (analysis) {
+      rows.push(['--- Analysis ---']);
+      rows.push(['Overall Score', `${analysis.deepgramAnalysis.overallScore.toFixed(1)}/10`]);
+      rows.push(['Verdict', analysis.deepgramAnalysis.verdict]);
+      rows.push(['Summary', analysis.deepgramAnalysis.summary]);
+      rows.push([]);
+      rows.push(['Factor', 'Score', 'Feedback']);
+      for (const s of analysis.deepgramAnalysis.scores) {
+        rows.push([s.category, s.score, s.feedback]);
+      }
+      rows.push([]);
+    }
+
+    // Transcript
+    if (transcript.speakerBlocks.length > 0) {
+      rows.push(['--- Diarized Transcript ---']);
+      rows.push(['Speaker', 'Start', 'End', 'Text']);
+      for (const b of transcript.speakerBlocks) {
+        rows.push([`Speaker ${b.speaker}`, fmtTime(b.start), fmtTime(b.end), b.text]);
+      }
+    } else {
+      rows.push(['--- Full Transcript ---']);
+      rows.push([transcript.rawTranscript]);
+    }
+
+    downloadCsv(rows, `${fileName}-results.csv`);
+  };
+
   const hasTranscript = transcript !== null;
   const hasAnalysis = analysis !== null;
 
@@ -274,10 +318,16 @@ export default function TranscribePage() {
                 </Button>
 
                 {hasTranscript && (
-                  <Button variant="outline" size="sm" className="w-full" onClick={handleDownloadJSON}>
-                    <Download className="mr-2 h-3.5 w-3.5" />
-                    Export Results as JSON
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" className="flex-1" onClick={handleDownloadCSV}>
+                      <Download className="mr-2 h-3.5 w-3.5" />
+                      Export CSV
+                    </Button>
+                    <Button variant="outline" size="sm" className="flex-1" onClick={handleDownloadJSON}>
+                      <Download className="mr-2 h-3.5 w-3.5" />
+                      Export JSON
+                    </Button>
+                  </div>
                 )}
               </div>
             </CardContent>
