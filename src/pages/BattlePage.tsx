@@ -510,6 +510,7 @@ export default function BattlePage() {
   const [verdict, setVerdict] = useState<BattleVerdict | null>(null);
   const [judging, setJudging] = useState(false);
   const [judgeModel, setJudgeModel] = useState('gemini-2.5-flash');
+  const [judgeEnabled, setJudgeEnabled] = useState(true);
   const [cachedTranslationA, setCachedTranslationA] = useState<string | null>(null);
   const [cachedTranslationB, setCachedTranslationB] = useState<string | null>(null);
   const [showTranslation, setShowTranslation] = useState(false);
@@ -539,6 +540,7 @@ export default function BattlePage() {
       }
       if (s.verdict !== undefined) setVerdict(s.verdict);
       if (s.judgeModel) setJudgeModel(s.judgeModel);
+      if (s.judgeEnabled !== undefined) setJudgeEnabled(s.judgeEnabled);
       if (s.cachedTranslationA !== undefined) setCachedTranslationA(s.cachedTranslationA);
       if (s.cachedTranslationB !== undefined) setCachedTranslationB(s.cachedTranslationB);
       if (s.showTranslation !== undefined) setShowTranslation(s.showTranslation);
@@ -561,13 +563,13 @@ export default function BattlePage() {
     try {
       sessionStorage.setItem('stt_battle_state', JSON.stringify({
         slotAConfig, slotBConfig, slotAResult, slotBResult,
-        verdict, judgeModel, cachedTranslationA, cachedTranslationB,
+        verdict, judgeModel, judgeEnabled, cachedTranslationA, cachedTranslationB,
         showTranslation, fileNameHint,
       }));
     } catch {
       // Storage full — ignore
     }
-  }, [slotAConfig, slotBConfig, slotAResult, slotBResult, verdict, judgeModel,
+  }, [slotAConfig, slotBConfig, slotAResult, slotBResult, verdict, judgeModel, judgeEnabled,
       cachedTranslationA, cachedTranslationB, showTranslation, fileNameHint]);
 
   // ── beforeunload guard ──
@@ -681,6 +683,8 @@ export default function BattlePage() {
       return;
     }
 
+    if (!judgeEnabled) return;
+
     // Judge
     setJudging(true);
     try {
@@ -747,22 +751,45 @@ export default function BattlePage() {
         </Card>
       </div>
 
-      {/* Judge model + Run button */}
+      {/* Judge toggle + model + Run button */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        <div className="flex items-center gap-2 flex-1">
-          <Label className="text-xs text-muted-foreground whitespace-nowrap">Judge model</Label>
-          <div className="w-48">
-            <SelectField
-              value={judgeModel}
-              onChange={setJudgeModel}
+        <div className="flex items-center gap-3 flex-1">
+          <div className="flex items-center gap-2">
+            <button
+              role="switch"
+              aria-checked={judgeEnabled}
+              onClick={() => !isRunning && setJudgeEnabled(v => !v)}
               disabled={isRunning}
-              options={[
-                { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
-                { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
-                { value: 'gemini-1.5-pro',   label: 'Gemini 1.5 Pro' },
-              ]}
-            />
+              className={cn(
+                'relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                'disabled:cursor-not-allowed disabled:opacity-50',
+                judgeEnabled ? 'bg-primary' : 'bg-muted-foreground/30 dark:bg-muted-foreground/40',
+              )}
+            >
+              <span className={cn(
+                'pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200',
+                judgeEnabled ? 'translate-x-4' : 'translate-x-0',
+              )} />
+            </button>
+            <Label className="text-xs text-muted-foreground whitespace-nowrap cursor-pointer" onClick={() => !isRunning && setJudgeEnabled(v => !v)}>
+              Gemini Judge
+            </Label>
           </div>
+          {judgeEnabled && (
+            <div className="w-48">
+              <SelectField
+                value={judgeModel}
+                onChange={setJudgeModel}
+                disabled={isRunning}
+                options={[
+                  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+                  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+                  { value: 'gemini-1.5-pro',   label: 'Gemini 1.5 Pro' },
+                ]}
+              />
+            </div>
+          )}
         </div>
         <div className="flex gap-2">
           {(slotAResult.status !== 'idle' || slotBResult.status !== 'idle') && (
