@@ -40,7 +40,7 @@ export function FileUploadZone({ onFileSelect, selectedFile, onClear, disabled }
 
   if (selectedFile) {
     return (
-      <div className="relative flex items-center gap-4 rounded-xl border border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800 p-5">
+      <div className="relative flex items-center gap-4 rounded-xl border border-green-200 bg-green-100 dark:bg-green-950/20 dark:border-green-800 p-5">
         <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-green-100 dark:bg-green-900/40">
           <FileAudio className="h-6 w-6 text-green-600 dark:text-green-400" />
         </div>
@@ -59,7 +59,7 @@ export function FileUploadZone({ onFileSelect, selectedFile, onClear, disabled }
             size="icon"
             onClick={onClear}
             disabled={disabled}
-            className="h-8 w-8 text-green-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
+            className="h-8 w-8 text-green-600 hover:text-red-500 hover:bg-red-100 dark:hover:bg-red-950/20"
           >
             <X className="h-4 w-4" />
           </Button>
@@ -75,7 +75,7 @@ export function FileUploadZone({ onFileSelect, selectedFile, onClear, disabled }
         'flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 text-center transition-all duration-200 cursor-pointer',
         isDragActive
           ? 'border-primary bg-primary/5 scale-[1.01]'
-          : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/30',
+          : 'border-muted-foreground/40 hover:border-primary/50 hover:bg-muted/30',
         disabled && 'opacity-50 cursor-not-allowed'
       )}
     >

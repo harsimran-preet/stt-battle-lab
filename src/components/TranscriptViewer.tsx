@@ -57,31 +57,31 @@ export function TranscriptViewer({ result, geminiModel, onSeekTo }: TranscriptVi
           icon={<Clock className="h-4 w-4" />}
           label="Duration"
           value={formatTime(result.duration)}
-          colorClass="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30"
+          colorClass="text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-950/30"
         />
         <StatCard
           icon={<BarChart2 className="h-4 w-4" />}
           label="Confidence"
           value={`${(result.confidence * 100).toFixed(1)}%`}
-          colorClass="text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30"
+          colorClass="text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/30"
         />
         <StatCard
           icon={<Users className="h-4 w-4" />}
           label="Speakers"
           value={hasDiarization ? uniqueSpeakers.length.toString() : 'N/A'}
-          colorClass="text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/30"
+          colorClass="text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-950/30"
         />
         <StatCard
           icon={<FileText className="h-4 w-4" />}
           label="Words"
           value={result.words.length.toString()}
-          colorClass="text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/30"
+          colorClass="text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-950/30"
         />
       </div>
 
       {/* Diarization failed warning */}
       {diarizationFailed && (
-        <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/20 px-3.5 py-3">
+        <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-100 dark:bg-amber-950/20 px-3.5 py-3">
           <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
           <div className="text-sm text-amber-800 dark:text-amber-200">
             <span className="font-semibold">Diarization may have failed</span> — all segments are tagged as Speaker 0.

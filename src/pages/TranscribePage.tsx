@@ -232,7 +232,7 @@ export default function TranscribePage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {!selectedFile && fileNameHint && (
-                <div className="flex items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700 px-4 py-3">
+                <div className="flex items-center gap-3 rounded-lg border border-amber-300 bg-amber-100 dark:bg-amber-950/20 dark:border-amber-700 px-4 py-3">
                   <AlertCircle className="h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
                   <p className="text-sm text-amber-800 dark:text-amber-300">
                     Session restored — re-upload <span className="font-semibold">{fileNameHint}</span> to transcribe again.
@@ -289,7 +289,7 @@ export default function TranscribePage() {
         {/* Right Panel – Results */}
         <div>
           {step === 'idle' && !hasTranscript && (
-            <div className="flex h-full min-h-[400px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-muted-foreground/20 text-center p-8">
+            <div className="flex h-full min-h-[400px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-muted-foreground/35 text-center p-8">
               <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
                 <Mic2 className="h-8 w-8 text-muted-foreground" />
               </div>

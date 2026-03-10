@@ -376,7 +376,7 @@ function VerdictCard({
           'rounded-lg border p-4 text-center',
           verdict.winner === 'tie'
             ? 'bg-muted/50 border-border'
-            : 'bg-amber-50 dark:bg-amber-950/20 border-amber-300 dark:border-amber-700',
+            : 'bg-amber-100 dark:bg-amber-950/20 border-amber-300 dark:border-amber-700',
         )}>
           {verdict.winner === 'tie' ? (
             <div className="flex items-center justify-center gap-2">
@@ -660,7 +660,7 @@ export default function BattlePage() {
       <Card>
         <CardContent className="pt-4 space-y-3">
           {!file && fileNameHint && (
-            <div className="flex items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700 px-4 py-3">
+            <div className="flex items-center gap-3 rounded-lg border border-amber-300 bg-amber-100 dark:bg-amber-950/20 dark:border-amber-700 px-4 py-3">
               <AlertCircle className="h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
               <p className="text-sm text-amber-800 dark:text-amber-300">
                 Session restored — re-upload <span className="font-semibold">{fileNameHint}</span> to run a new battle.

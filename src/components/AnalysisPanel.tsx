@@ -90,7 +90,7 @@ export function AnalysisPanel({ analysis }: AnalysisPanelProps) {
             </h3>
             <div className="space-y-1.5">
               {deepgramAnalysis.strengths.map((s, i) => (
-                <div key={i} className="flex items-start gap-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 p-3">
+                <div key={i} className="flex items-start gap-2.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 p-3">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-500" />
                   <p className="text-sm text-emerald-800 dark:text-emerald-200">{s}</p>
                 </div>
@@ -108,7 +108,7 @@ export function AnalysisPanel({ analysis }: AnalysisPanelProps) {
             </h3>
             <div className="space-y-1.5">
               {deepgramAnalysis.weaknesses.map((w, i) => (
-                <div key={i} className="flex items-start gap-2.5 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 p-3">
+                <div key={i} className="flex items-start gap-2.5 rounded-lg bg-red-100 dark:bg-red-950/20 border border-red-200 dark:border-red-800 p-3">
                   <XCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-500" />
                   <p className="text-sm text-red-800 dark:text-red-200">{w}</p>
                 </div>
@@ -126,7 +126,7 @@ export function AnalysisPanel({ analysis }: AnalysisPanelProps) {
             </h3>
             <div className="space-y-1.5">
               {deepgramAnalysis.suggestions.map((s, i) => (
-                <div key={i} className="flex items-start gap-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-3">
+                <div key={i} className="flex items-start gap-2.5 rounded-lg bg-amber-100 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-3">
                   <Lightbulb className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-500" />
                   <p className="text-sm text-amber-800 dark:text-amber-200">{s}</p>
                 </div>
