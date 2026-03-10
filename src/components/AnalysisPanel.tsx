@@ -2,7 +2,7 @@ import type { AnalysisResult } from '@/types';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { CheckCircle2, XCircle, Lightbulb, Star, TrendingUp, TrendingDown, Trophy, ThumbsUp, AlertTriangle } from 'lucide-react';
+import { Star, Trophy, ThumbsUp, AlertTriangle, XCircle } from 'lucide-react';
 
 interface AnalysisPanelProps {
   analysis: AnalysisResult;
@@ -81,59 +81,6 @@ export function AnalysisPanel({ analysis }: AnalysisPanelProps) {
           ))}
         </div>
 
-        {/* Strengths */}
-        {deepgramAnalysis.strengths.length > 0 && (
-          <div className="space-y-2">
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-              <TrendingUp className="h-4 w-4 text-emerald-500" />
-              Strengths
-            </h3>
-            <div className="space-y-1.5">
-              {deepgramAnalysis.strengths.map((s, i) => (
-                <div key={i} className="flex items-start gap-2.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 p-3">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-500" />
-                  <p className="text-sm text-emerald-800 dark:text-emerald-200">{s}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Weaknesses */}
-        {deepgramAnalysis.weaknesses.length > 0 && (
-          <div className="space-y-2">
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-              <TrendingDown className="h-4 w-4 text-red-500" />
-              Weaknesses
-            </h3>
-            <div className="space-y-1.5">
-              {deepgramAnalysis.weaknesses.map((w, i) => (
-                <div key={i} className="flex items-start gap-2.5 rounded-lg bg-red-100 dark:bg-red-950/20 border border-red-200 dark:border-red-800 p-3">
-                  <XCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-500" />
-                  <p className="text-sm text-red-800 dark:text-red-200">{w}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Suggestions */}
-        {deepgramAnalysis.suggestions.length > 0 && (
-          <div className="space-y-2">
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-              <Lightbulb className="h-4 w-4 text-amber-500" />
-              Suggestions
-            </h3>
-            <div className="space-y-1.5">
-              {deepgramAnalysis.suggestions.map((s, i) => (
-                <div key={i} className="flex items-start gap-2.5 rounded-lg bg-amber-100 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-3">
-                  <Lightbulb className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-500" />
-                  <p className="text-sm text-amber-800 dark:text-amber-200">{s}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </ScrollArea>
   );

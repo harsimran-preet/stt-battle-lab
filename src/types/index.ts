@@ -78,9 +78,6 @@ export interface STTAnalysis {
   verdict: 'Excellent' | 'Good' | 'Fair' | 'Poor';
   summary: string;
   scores: AnalysisScore[];
-  strengths: string[];
-  weaknesses: string[];
-  suggestions: string[];
 }
 
 export interface AnalysisResult {
@@ -163,12 +160,21 @@ export interface BattleSlotResult {
   statusMsg?: string | null; // live status for Soniox polling
 }
 
+export interface BattleFactorScore {
+  factor: string;
+  scoreA: number;
+  scoreB: number;
+  feedbackA: string;
+  feedbackB: string;
+}
+
 export interface BattleVerdict {
   winner: 'A' | 'B' | 'tie';
   scoreA: number;
   scoreB: number;
   reasoningA: string;
   reasoningB: string;
+  factors: BattleFactorScore[];
 }
 
 export const SONIOX_MODELS = [

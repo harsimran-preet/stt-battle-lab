@@ -339,6 +339,20 @@ function SlotResultPanel({
   );
 }
 
+function scoreColor(score: number) {
+  if (score >= 8) return 'text-emerald-600 dark:text-emerald-400';
+  if (score >= 6) return 'text-blue-600 dark:text-blue-400';
+  if (score >= 4) return 'text-amber-600 dark:text-amber-400';
+  return 'text-red-600 dark:text-red-400';
+}
+
+function scoreBarColor(score: number) {
+  if (score >= 8) return 'bg-emerald-500';
+  if (score >= 6) return 'bg-blue-500';
+  if (score >= 4) return 'bg-amber-500';
+  return 'bg-red-500';
+}
+
 function VerdictCard({
   verdict, labelA, labelB, judging,
 }: {
@@ -391,7 +405,7 @@ function VerdictCard({
           )}
         </div>
 
-        {/* Scores */}
+        {/* Overall Scores */}
         <div className="grid grid-cols-2 gap-3">
           {([['A', labelA, verdict.scoreA, verdict.reasoningA, 'blue'], ['B', labelB, verdict.scoreB, verdict.reasoningB, 'orange']] as const).map(
             ([side, label, score, reasoning, color]) => (
@@ -411,23 +425,13 @@ function VerdictCard({
                     </span>
                     <span className="text-xs font-medium text-muted-foreground truncate max-w-[100px]">{label}</span>
                   </div>
-                  <span className={cn(
-                    'text-lg font-black tabular-nums',
-                    score >= 8 ? 'text-emerald-600 dark:text-emerald-400'
-                    : score >= 6 ? 'text-blue-600 dark:text-blue-400'
-                    : score >= 4 ? 'text-amber-600 dark:text-amber-400'
-                    : 'text-red-600 dark:text-red-400',
-                  )}>
+                  <span className={cn('text-lg font-black tabular-nums', scoreColor(score))}>
                     {score}<span className="text-xs font-medium text-muted-foreground">/10</span>
                   </span>
                 </div>
-                {/* Score bar */}
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                   <div
-                    className={cn(
-                      'h-full rounded-full transition-all duration-700',
-                      score >= 8 ? 'bg-emerald-500' : score >= 6 ? 'bg-blue-500' : score >= 4 ? 'bg-amber-500' : 'bg-red-500',
-                    )}
+                    className={cn('h-full rounded-full transition-all duration-700', scoreBarColor(score))}
                     style={{ width: `${score * 10}%` }}
                   />
                 </div>
@@ -436,6 +440,58 @@ function VerdictCard({
             ),
           )}
         </div>
+
+        {/* Per-factor breakdown */}
+        {verdict.factors && verdict.factors.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Factor Breakdown
+            </h3>
+            {verdict.factors.map(f => {
+              const aWins = f.scoreA > f.scoreB;
+              const bWins = f.scoreB > f.scoreA;
+              return (
+                <div key={f.factor} className="rounded-lg border bg-card p-3 space-y-2.5">
+                  <p className="text-sm font-medium text-foreground">{f.factor}</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Side A */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-[9px] font-bold text-white">A</span>
+                          {aWins && <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">Best</span>}
+                        </div>
+                        <span className={cn('text-sm font-bold tabular-nums', scoreColor(f.scoreA))}>
+                          {f.scoreA}<span className="text-[10px] text-muted-foreground">/10</span>
+                        </span>
+                      </div>
+                      <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+                        <div className={cn('h-full rounded-full transition-all duration-700', scoreBarColor(f.scoreA))} style={{ width: `${f.scoreA * 10}%` }} />
+                      </div>
+                      <p className="text-[11px] leading-relaxed text-muted-foreground">{f.feedbackA}</p>
+                    </div>
+                    {/* Side B */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 text-[9px] font-bold text-white">B</span>
+                          {bWins && <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">Best</span>}
+                        </div>
+                        <span className={cn('text-sm font-bold tabular-nums', scoreColor(f.scoreB))}>
+                          {f.scoreB}<span className="text-[10px] text-muted-foreground">/10</span>
+                        </span>
+                      </div>
+                      <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+                        <div className={cn('h-full rounded-full transition-all duration-700', scoreBarColor(f.scoreB))} style={{ width: `${f.scoreB * 10}%` }} />
+                      </div>
+                      <p className="text-[11px] leading-relaxed text-muted-foreground">{f.feedbackB}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

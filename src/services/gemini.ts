@@ -22,12 +22,12 @@ export async function analyzeTranscript(
           .join('\n')
       : 'No diarization data available';
 
-  const prompt = `You are an expert Speech-to-Text quality analyst. Evaluate the following transcript produced by Deepgram's Nova-3 STT model and provide a detailed quality assessment.
+  const prompt = `You are an expert Speech-to-Text quality analyst. Evaluate the following transcript and provide a detailed quality assessment.
 
 ## Audio File
 Filename: ${fileName}
 Duration: ${formatTime(result.duration)}
-Overall Confidence Score (from Deepgram): ${(result.confidence * 100).toFixed(1)}%
+Overall Confidence Score: ${(result.confidence * 100).toFixed(1)}%
 Number of Speaker Blocks: ${result.speakerBlocks.length}
 
 ## Raw Transcript
@@ -40,24 +40,21 @@ ${speakerSection}
 ${result.words.length} words transcribed
 
 ---
-Analyze the STT output quality and return ONLY a valid JSON object with this exact structure:
+Analyze the STT output quality across these 5 factors and return ONLY a valid JSON object with this exact structure:
 {
   "overallScore": <number 0-10>,
   "verdict": <"Excellent" | "Good" | "Fair" | "Poor">,
   "summary": "<2-3 sentence overall assessment>",
   "scores": [
-    {"category": "Transcription Accuracy", "score": <0-10>, "feedback": "<specific observations>"},
-    {"category": "Speaker Diarization", "score": <0-10>, "feedback": "<quality of speaker separation>"},
-    {"category": "Punctuation & Formatting", "score": <0-10>, "feedback": "<readability assessment>"},
-    {"category": "Confidence Consistency", "score": <0-10>, "feedback": "<confidence score reliability>"},
-    {"category": "Completeness", "score": <0-10>, "feedback": "<did it capture everything?>"}
+    {"category": "Verbatim Accuracy", "score": <0-10>, "feedback": "<how faithfully it captured spoken words — missing words, hallucinations, substitutions>"},
+    {"category": "Punctuation & Formatting", "score": <0-10>, "feedback": "<sentence boundaries, capitalization, commas, question marks, paragraph breaks>"},
+    {"category": "Completeness", "score": <0-10>, "feedback": "<did it capture everything? any truncated or missing segments?>"},
+    {"category": "Proper Noun Handling", "score": <0-10>, "feedback": "<names, places, brands, technical terms — correct or mangled?>"},
+    {"category": "Readability & Naturalness", "score": <0-10>, "feedback": "<does it read like natural speech? grammar coherence, filler word handling, sentence flow>"}
   ],
-  "strengths": ["<strength 1>", "<strength 2>", "<strength 3>"],
-  "weaknesses": ["<weakness 1>", "<weakness 2>"],
-  "suggestions": ["<suggestion 1>", "<suggestion 2>", "<suggestion 3>"]
 }
 
-Consider: grammar coherence, logical sentence structure, proper nouns handling, speaker boundary accuracy, timestamp consistency, confidence variance across words, and overall readability.`;
+Be specific in your feedback — reference actual words or phrases from the transcript when possible.`;
 
   const response = await model.generateContent(prompt);
   const text = response.response.text();
@@ -218,7 +215,7 @@ export async function judgeTranscripts(
   const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
   const model = genAI.getGenerativeModel({ model: geminiModel });
 
-  const prompt = `You are an expert Speech-to-Text quality judge. Two STT services transcribed the same audio file. Evaluate them and declare a winner.
+  const prompt = `You are an expert Speech-to-Text quality judge. Two STT services transcribed the same audio file. Evaluate them across 5 quality factors and declare a winner.
 
 Audio file: ${fileName}
 
@@ -228,15 +225,27 @@ ${transcriptA || '(empty — service failed or returned nothing)'}
 --- Transcript B (${labelB}) ---
 ${transcriptB || '(empty — service failed or returned nothing)'}
 
-Evaluate based on: accuracy, completeness, grammar coherence, proper noun handling, punctuation, and naturalness of language.
+Evaluate each transcript across these 5 factors:
+1. **Verbatim Accuracy** — How faithfully it captured spoken words (missing words, hallucinations, substitutions)
+2. **Punctuation & Formatting** — Proper sentence boundaries, capitalization, commas, question marks
+3. **Completeness** — Did it capture everything? Any truncated or missing segments?
+4. **Proper Noun Handling** — Names, places, brands, technical terms — correct or mangled?
+5. **Readability & Naturalness** — Does it read like natural speech? Grammar coherence, filler word handling, sentence flow
 
 Return ONLY a valid JSON object with this exact structure:
 {
   "winner": <"A" | "B" | "tie">,
   "scoreA": <number 0-10>,
   "scoreB": <number 0-10>,
-  "reasoningA": "<1 concise paragraph assessing transcript A's quality>",
-  "reasoningB": "<1 concise paragraph assessing transcript B's quality>"
+  "reasoningA": "<1 concise paragraph assessing transcript A's overall quality>",
+  "reasoningB": "<1 concise paragraph assessing transcript B's overall quality>",
+  "factors": [
+    {"factor": "Verbatim Accuracy", "scoreA": <0-10>, "scoreB": <0-10>, "feedbackA": "<brief observation for A>", "feedbackB": "<brief observation for B>"},
+    {"factor": "Punctuation & Formatting", "scoreA": <0-10>, "scoreB": <0-10>, "feedbackA": "<brief>", "feedbackB": "<brief>"},
+    {"factor": "Completeness", "scoreA": <0-10>, "scoreB": <0-10>, "feedbackA": "<brief>", "feedbackB": "<brief>"},
+    {"factor": "Proper Noun Handling", "scoreA": <0-10>, "scoreB": <0-10>, "feedbackA": "<brief>", "feedbackB": "<brief>"},
+    {"factor": "Readability & Naturalness", "scoreA": <0-10>, "scoreB": <0-10>, "feedbackA": "<brief>", "feedbackB": "<brief>"}
+  ]
 }`;
 
   const response = await model.generateContent(prompt);
