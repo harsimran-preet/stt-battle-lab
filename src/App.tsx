@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import TranscribePage from '@/pages/TranscribePage';
 import BattlePage from '@/pages/BattlePage';
+import AboutPage from '@/pages/AboutPage';
 
 export default function App() {
   return (
@@ -10,6 +11,7 @@ export default function App() {
         <Route index element={<Navigate to="/transcribe" replace />} />
         <Route path="transcribe" element={<TranscribePage />} />
         <Route path="battle" element={<BattlePage />} />
+        <Route path="about" element={<AboutPage />} />
       </Route>
     </Routes>
   );

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { Mic2, Github, Moon, Sun, Swords, BookOpen, ExternalLink } from 'lucide-react';
+import { Mic2, Github, Moon, Sun, Swords, BookOpen, ExternalLink, User } from 'lucide-react';
 import { Toaster } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -88,6 +88,28 @@ export default function Layout() {
             ))}
           </div>
         </nav>
+
+        {/* Bottom link */}
+        <div className="border-t px-3 py-3">
+          <NavLink
+            to="/about"
+            className={({ isActive }) =>
+              cn(
+                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                isActive
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              )
+            }
+          >
+            {({ isActive }) => (
+              <>
+                <User className={cn('h-4 w-4 flex-shrink-0', isActive ? 'text-primary' : 'text-muted-foreground')} />
+                About the Coder
+              </>
+            )}
+          </NavLink>
+        </div>
       </aside>
 
       {/* Main content — offset by sidebar width */}
@@ -103,7 +125,7 @@ export default function Layout() {
           >
             {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
-          <a href="https://github.com" target="_blank" rel="noreferrer">
+          <a href="https://github.com/harsimran-preet" target="_blank" rel="noreferrer">
             <Button variant="ghost" size="icon" className="h-8 w-8">
               <Github className="h-4 w-4" />
             </Button>
