@@ -1,16 +1,17 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
-  Swords, Loader2, Trophy, Minus, AlertCircle, Clock, FileText, RotateCcw,
+  Swords, Loader2, Trophy, Minus, AlertCircle, Clock, FileText, RotateCcw, Languages,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type {
   STTService, BattleSlotConfig, BattleSlotResult, BattleVerdict,
   BattleSlotConfig as SlotCfg,
 } from '@/types';
-import { DEEPGRAM_MODELS, DEEPGRAM_LANGUAGES, SONIOX_MODELS, GEMINI_STT_MODELS } from '@/types';
-import { transcribeFileStreaming } from '@/services/deepgram';
+import { DEEPGRAM_MODELS, DEEPGRAM_LANGUAGES, SONIOX_MODELS, GEMINI_STT_MODELS, ORISTT_MODELS, ORISTT_LANGUAGES } from '@/types';
+import { transcribeFile } from '@/services/deepgram';
 import { transcribeWithSoniox } from '@/services/soniox';
-import { transcribeWithGemini, judgeTranscripts } from '@/services/gemini';
+import { transcribeWithGemini, judgeTranscripts, translateText } from '@/services/gemini';
+import { transcribeWithOriSTT } from '@/services/oristt';
 import { FileUploadZone } from '@/components/FileUploadZone';
 import { AudioPlayer, type AudioPlayerHandle } from '@/components/AudioPlayer';
 import { Button } from '@/components/ui/button';
@@ -38,12 +39,18 @@ const SERVICE_META: Record<STTService, { label: string; color: string; badgeClas
     color: 'emerald',
     badgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700',
   },
+  oristt: {
+    label: 'OriSTT',
+    color: 'amber',
+    badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border-amber-300 dark:border-amber-700',
+  },
 };
 
 const MODEL_OPTIONS: Record<STTService, readonly { value: string; label: string }[]> = {
   deepgram: DEEPGRAM_MODELS,
   soniox: SONIOX_MODELS,
   gemini: GEMINI_STT_MODELS,
+  oristt: ORISTT_MODELS,
 };
 
 const DEFAULT_SLOT_A: BattleSlotConfig = { service: 'deepgram', model: 'nova-3', language: 'en' };
@@ -66,12 +73,23 @@ async function runSlot(
   onStatus: (msg: string) => void,
 ): Promise<{ transcript: string }> {
   switch (cfg.service) {
-    case 'deepgram':
-      return transcribeFileStreaming(file, cfg.model, cfg.language, onChunk);
+    case 'deepgram': {
+      onStatus('Transcribing…');
+      const result = await transcribeFile(file, cfg.model, cfg.language, false);
+      const transcript = result.rawTranscript;
+      onChunk(transcript);
+      return { transcript };
+    }
     case 'soniox':
       return transcribeWithSoniox(file, cfg.model, onStatus);
     case 'gemini':
       return transcribeWithGemini(file, cfg.model, onChunk);
+    case 'oristt': {
+      onStatus('Transcribing…');
+      const result = await transcribeWithOriSTT(file, cfg.model, cfg.language);
+      onChunk(result.transcript);
+      return result;
+    }
   }
 }
 
@@ -138,7 +156,11 @@ function SlotConfigPanel({
           value={config.service}
           onChange={v => {
             const svc = v as STTService;
-            onChange({ ...config, service: svc, model: MODEL_OPTIONS[svc][0].value });
+            const model = MODEL_OPTIONS[svc][0].value;
+            const language = svc === 'oristt'
+              ? (ORISTT_LANGUAGES[model]?.[0]?.value ?? 'hi')
+              : config.service === 'oristt' ? 'en' : config.language;
+            onChange({ ...config, service: svc, model, language });
           }}
           disabled={disabled}
           options={Object.entries(SERVICE_META).map(([v, m]) => ({ value: v, label: m.label }))}
@@ -149,7 +171,16 @@ function SlotConfigPanel({
         <Label className="text-xs font-medium text-muted-foreground">Model</Label>
         <SelectField
           value={config.model}
-          onChange={v => onChange({ ...config, model: v })}
+          onChange={v => {
+            const updated = { ...config, model: v };
+            if (config.service === 'oristt') {
+              const langs = ORISTT_LANGUAGES[v];
+              if (langs && !langs.some(l => l.value === config.language)) {
+                updated.language = langs[0].value;
+              }
+            }
+            onChange(updated);
+          }}
           disabled={disabled}
           options={MODEL_OPTIONS[config.service]}
         />
@@ -177,18 +208,32 @@ function SlotConfigPanel({
           </div>
         </div>
       )}
+
+      {config.service === 'oristt' && (
+        <div className="space-y-2">
+          <Label className="text-xs font-medium text-muted-foreground">Language</Label>
+          <SelectField
+            value={config.language}
+            onChange={v => onChange({ ...config, language: v })}
+            disabled={disabled}
+            options={ORISTT_LANGUAGES[config.model] ?? ORISTT_LANGUAGES['ori-indic-prime-v1']}
+          />
+        </div>
+      )}
     </div>
   );
 }
 
 function SlotResultPanel({
-  side, config, result,
+  side, config, result, translation,
 }: {
   side: 'A' | 'B';
   config: BattleSlotConfig;
   result: BattleSlotResult;
+  translation?: string | null;
 }) {
   const meta = SERVICE_META[config.service];
+  const displayText = translation ?? result.transcript;
 
   return (
     <div className="flex flex-col gap-2">
@@ -204,6 +249,12 @@ function SlotResultPanel({
           {meta.label}
         </Badge>
         <span className="text-xs text-muted-foreground truncate">{slotLabel(config)}</span>
+        {translation && (
+          <Badge variant="secondary" className="text-[10px] gap-1">
+            <Languages className="h-3 w-3" />
+            Translated
+          </Badge>
+        )}
         {result.timeTakenMs !== null && (
           <span className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
             <Clock className="h-3 w-3" />
@@ -264,9 +315,9 @@ function SlotResultPanel({
         {result.status === 'done' && (
           <ScrollArea className="h-[280px]">
             <div className="p-4 space-y-2">
-              {result.transcript ? (
+              {displayText ? (
                 <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">
-                  {result.transcript}
+                  {displayText}
                 </p>
               ) : (
                 <p className="text-sm italic text-muted-foreground">No transcript returned.</p>
@@ -277,10 +328,10 @@ function SlotResultPanel({
       </div>
 
       {/* Word count */}
-      {result.transcript && (result.status === 'done' || result.status === 'running') && (
+      {displayText && (result.status === 'done' || result.status === 'running') && (
         <p className="flex items-center gap-1 text-xs text-muted-foreground">
           <FileText className="h-3 w-3" />
-          {result.transcript.trim().split(/\s+/).length} words
+          {displayText.trim().split(/\s+/).length} words
           {result.status === 'running' && <span className="animate-pulse">…</span>}
         </p>
       )}
@@ -403,11 +454,80 @@ export default function BattlePage() {
   const [verdict, setVerdict] = useState<BattleVerdict | null>(null);
   const [judging, setJudging] = useState(false);
   const [judgeModel, setJudgeModel] = useState('gemini-2.5-flash');
+  const [cachedTranslationA, setCachedTranslationA] = useState<string | null>(null);
+  const [cachedTranslationB, setCachedTranslationB] = useState<string | null>(null);
+  const [showTranslation, setShowTranslation] = useState(false);
+  const [translating, setTranslating] = useState(false);
+  const [fileNameHint, setFileNameHint] = useState<string | null>(null);
 
   const isRunning = slotAResult.status === 'running' || slotBResult.status === 'running' || judging;
+  const isRunningRef = useRef(false);
+  isRunningRef.current = isRunning;
+  const isRestoredRef = useRef(false);
+
+  // ── sessionStorage restore (once on mount) ──
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('stt_battle_state');
+      if (!raw) { isRestoredRef.current = true; return; }
+      const s = JSON.parse(raw);
+      if (s.slotAConfig) setSlotAConfig(s.slotAConfig);
+      if (s.slotBConfig) setSlotBConfig(s.slotBConfig);
+      if (s.slotAResult) {
+        const r = s.slotAResult as BattleSlotResult;
+        setSlotAResult(r.status === 'running' ? IDLE_RESULT : r);
+      }
+      if (s.slotBResult) {
+        const r = s.slotBResult as BattleSlotResult;
+        setSlotBResult(r.status === 'running' ? IDLE_RESULT : r);
+      }
+      if (s.verdict !== undefined) setVerdict(s.verdict);
+      if (s.judgeModel) setJudgeModel(s.judgeModel);
+      if (s.cachedTranslationA !== undefined) setCachedTranslationA(s.cachedTranslationA);
+      if (s.cachedTranslationB !== undefined) setCachedTranslationB(s.cachedTranslationB);
+      if (s.showTranslation !== undefined) setShowTranslation(s.showTranslation);
+      if (s.fileNameHint) setFileNameHint(s.fileNameHint);
+      // Detect judging-interrupted: slots done but no verdict
+      const aIsDone = s.slotAResult?.status === 'done';
+      const bIsDone = s.slotBResult?.status === 'done';
+      if ((aIsDone || bIsDone) && !s.verdict) {
+        toast.info('Gemini judging was interrupted — click Run Battle to re-judge.');
+      }
+    } catch {
+      // Corrupt storage — ignore
+    }
+    isRestoredRef.current = true;
+  }, []);
+
+  // ── sessionStorage save (on relevant state changes) ──
+  useEffect(() => {
+    if (!isRestoredRef.current) return;
+    try {
+      sessionStorage.setItem('stt_battle_state', JSON.stringify({
+        slotAConfig, slotBConfig, slotAResult, slotBResult,
+        verdict, judgeModel, cachedTranslationA, cachedTranslationB,
+        showTranslation, fileNameHint,
+      }));
+    } catch {
+      // Storage full — ignore
+    }
+  }, [slotAConfig, slotBConfig, slotAResult, slotBResult, verdict, judgeModel,
+      cachedTranslationA, cachedTranslationB, showTranslation, fileNameHint]);
+
+  // ── beforeunload guard ──
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (!isRunningRef.current) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, []);
 
   const handleFileSelect = (f: File) => {
     setFile(f);
+    setFileNameHint(f.name);
     setSlotAResult(IDLE_RESULT);
     setSlotBResult(IDLE_RESULT);
     setVerdict(null);
@@ -415,9 +535,43 @@ export default function BattlePage() {
 
   const handleClear = () => {
     setFile(null);
+    setFileNameHint(null);
     setSlotAResult(IDLE_RESULT);
     setSlotBResult(IDLE_RESULT);
     setVerdict(null);
+    setCachedTranslationA(null);
+    setCachedTranslationB(null);
+    setShowTranslation(false);
+    sessionStorage.removeItem('stt_battle_state');
+  };
+
+  const handleTranslateToggle = async () => {
+    // If we already have cached translations, just toggle visibility
+    if (cachedTranslationA || cachedTranslationB) {
+      setShowTranslation(prev => !prev);
+      return;
+    }
+
+    // Otherwise fetch translations
+    const textA = slotAResult.transcript;
+    const textB = slotBResult.transcript;
+    if (!textA && !textB) return;
+
+    setTranslating(true);
+    try {
+      const [resA, resB] = await Promise.allSettled([
+        textA ? translateText(textA, 'gemini-2.0-flash') : Promise.resolve(null),
+        textB ? translateText(textB, 'gemini-2.0-flash') : Promise.resolve(null),
+      ]);
+      setCachedTranslationA(resA.status === 'fulfilled' ? resA.value : null);
+      setCachedTranslationB(resB.status === 'fulfilled' ? resB.value : null);
+      setShowTranslation(true);
+      toast.success('Translations complete!');
+    } catch {
+      toast.error('Translation failed');
+    } finally {
+      setTranslating(false);
+    }
   };
 
   const handleRunBattle = async () => {
@@ -427,9 +581,11 @@ export default function BattlePage() {
     setSlotAResult({ ...IDLE_RESULT, status: 'running' });
     setSlotBResult({ ...IDLE_RESULT, status: 'running' });
     setVerdict(null);
+    setCachedTranslationA(null);
+    setCachedTranslationB(null);
+    setShowTranslation(false);
 
-    const startA = Date.now();
-    const startB = Date.now();
+    const start = Date.now();
 
     const onChunkA = (text: string) =>
       setSlotAResult(prev => ({ ...prev, transcript: text }));
@@ -441,19 +597,23 @@ export default function BattlePage() {
     const onStatusB = (msg: string) =>
       setSlotBResult(prev => ({ ...prev, statusMsg: msg }));
 
+    // Run both slots concurrently, capturing each slot's time individually
+    let endA: number | null = null;
+    let endB: number | null = null;
+
     const [resA, resB] = await Promise.allSettled([
-      runSlot(file, slotAConfig, onChunkA, onStatusA),
-      runSlot(file, slotBConfig, onChunkB, onStatusB),
+      runSlot(file, slotAConfig, onChunkA, onStatusA).finally(() => { endA = Date.now(); }),
+      runSlot(file, slotBConfig, onChunkB, onStatusB).finally(() => { endB = Date.now(); }),
     ]);
 
     const resultA: BattleSlotResult =
       resA.status === 'fulfilled'
-        ? { status: 'done', transcript: resA.value.transcript, timeTakenMs: Date.now() - startA, error: null }
+        ? { status: 'done', transcript: resA.value.transcript, timeTakenMs: (endA ?? Date.now()) - start, error: null }
         : { status: 'error', transcript: null, timeTakenMs: null, error: (resA.reason as Error).message };
 
     const resultB: BattleSlotResult =
       resB.status === 'fulfilled'
-        ? { status: 'done', transcript: resB.value.transcript, timeTakenMs: Date.now() - startB, error: null }
+        ? { status: 'done', transcript: resB.value.transcript, timeTakenMs: (endB ?? Date.now()) - start, error: null }
         : { status: 'error', transcript: null, timeTakenMs: null, error: (resB.reason as Error).message };
 
     setSlotAResult(resultA);
@@ -499,6 +659,14 @@ export default function BattlePage() {
       {/* File upload + audio player */}
       <Card>
         <CardContent className="pt-4 space-y-3">
+          {!file && fileNameHint && (
+            <div className="flex items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700 px-4 py-3">
+              <AlertCircle className="h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+              <p className="text-sm text-amber-800 dark:text-amber-300">
+                Session restored — re-upload <span className="font-semibold">{fileNameHint}</span> to run a new battle.
+              </p>
+            </div>
+          )}
           <FileUploadZone
             onFileSelect={handleFileSelect}
             selectedFile={file}
@@ -570,9 +738,32 @@ export default function BattlePage() {
 
       {/* Results — side by side */}
       {(slotAResult.status !== 'idle' || slotBResult.status !== 'idle') && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <SlotResultPanel side="A" config={slotAConfig} result={slotAResult} />
-          <SlotResultPanel side="B" config={slotBConfig} result={slotBResult} />
+        <div className="space-y-3">
+          {/* Translate button */}
+          {(slotAResult.status === 'done' || slotBResult.status === 'done') && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant={showTranslation ? 'secondary' : 'outline'}
+                size="sm"
+                className="gap-2"
+                onClick={handleTranslateToggle}
+                disabled={translating || isRunning}
+              >
+                {translating ? (
+                  <><Loader2 className="h-3.5 w-3.5 animate-spin" />Translating…</>
+                ) : showTranslation ? (
+                  <><Languages className="h-3.5 w-3.5" />Show Original</>
+                ) : (
+                  <><Languages className="h-3.5 w-3.5" />Translate to English</>
+                )}
+              </Button>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <SlotResultPanel side="A" config={slotAConfig} result={slotAResult} translation={showTranslation ? cachedTranslationA : null} />
+            <SlotResultPanel side="B" config={slotBConfig} result={slotBResult} translation={showTranslation ? cachedTranslationB : null} />
+          </div>
         </div>
       )}
 

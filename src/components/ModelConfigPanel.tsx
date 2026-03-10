@@ -1,6 +1,6 @@
 import { Settings2, RotateCcw, Globe, Users } from 'lucide-react';
 import type { ModelConfig } from '@/types';
-import { DEEPGRAM_MODELS, GEMINI_MODELS, DEEPGRAM_LANGUAGES, SONIOX_MODELS } from '@/types';
+import { DEEPGRAM_MODELS, GEMINI_MODELS, DEEPGRAM_LANGUAGES, SONIOX_MODELS, ORISTT_MODELS, ORISTT_LANGUAGES } from '@/types';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
@@ -16,6 +16,8 @@ const DEFAULT_CONFIG: ModelConfig = {
   deepgramLanguage: 'en',
   diarize: true,
   sonioxModel: 'stt-async-v4',
+  oristtModel: 'ori-indic-prime-v1',
+  oristtLanguage: 'hi',
   geminiModel: 'gemini-2.5-flash',
 };
 
@@ -26,6 +28,8 @@ export function ModelConfigPanel({ config, onChange, disabled }: ModelConfigPane
     config.deepgramLanguage !== DEFAULT_CONFIG.deepgramLanguage ||
     config.diarize !== DEFAULT_CONFIG.diarize ||
     config.sonioxModel !== DEFAULT_CONFIG.sonioxModel ||
+    config.oristtModel !== DEFAULT_CONFIG.oristtModel ||
+    config.oristtLanguage !== DEFAULT_CONFIG.oristtLanguage ||
     config.geminiModel !== DEFAULT_CONFIG.geminiModel;
 
   const handleReset = () => onChange({ ...DEFAULT_CONFIG });
@@ -59,8 +63,8 @@ export function ModelConfigPanel({ config, onChange, disabled }: ModelConfigPane
       {/* STT Service selector */}
       <div className="space-y-1.5">
         <Label className="text-xs font-medium text-foreground">STT Service</Label>
-        <div className="grid grid-cols-2 gap-2">
-          {([['deepgram', 'Deepgram', 'DG', 'blue'], ['soniox', 'Soniox', 'SX', 'purple']] as const).map(
+        <div className="grid grid-cols-3 gap-2">
+          {([['deepgram', 'Deepgram', 'DG', 'blue'], ['soniox', 'Soniox', 'SX', 'purple'], ['oristt', 'OriSTT', 'OR', 'amber']] as const).map(
             ([svc, label, badge, color]) => (
               <button
                 key={svc}
@@ -79,6 +83,7 @@ export function ModelConfigPanel({ config, onChange, disabled }: ModelConfigPane
                   config.sttService === svc
                     ? 'bg-white/20 text-white'
                     : color === 'blue' ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400'
+                    : color === 'amber' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400'
                                        : 'bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400',
                 )}>
                   {badge}
@@ -188,6 +193,47 @@ export function ModelConfigPanel({ config, onChange, disabled }: ModelConfigPane
         </div>
       )}
 
+      {/* OriSTT options */}
+      {config.sttService === 'oristt' && (
+        <>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-foreground flex items-center gap-1.5">
+              <span className="inline-flex h-4 w-4 items-center justify-center rounded-sm bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 text-[9px] font-bold leading-none">OR</span>
+              OriSTT Model
+            </Label>
+            <SelectField
+              value={config.oristtModel}
+              onChange={(v) => {
+                const langs = ORISTT_LANGUAGES[v];
+                const langValid = langs?.some(l => l.value === config.oristtLanguage);
+                onChange({
+                  ...config,
+                  oristtModel: v,
+                  oristtLanguage: langValid ? config.oristtLanguage : (langs?.[0]?.value ?? 'hi'),
+                });
+              }}
+              disabled={disabled}
+              options={ORISTT_MODELS}
+              isDefault={config.oristtModel === DEFAULT_CONFIG.oristtModel}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-foreground flex items-center gap-1.5">
+              <Globe className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400" />
+              STT Language
+            </Label>
+            <SelectField
+              value={config.oristtLanguage}
+              onChange={(v) => onChange({ ...config, oristtLanguage: v })}
+              disabled={disabled}
+              options={ORISTT_LANGUAGES[config.oristtModel] ?? ORISTT_LANGUAGES['ori-indic-prime-v1']}
+              isDefault={config.oristtLanguage === DEFAULT_CONFIG.oristtLanguage}
+            />
+          </div>
+        </>
+      )}
+
       {/* Gemini Analysis Model */}
       <div className="space-y-1.5">
         <Label className="text-xs font-medium text-foreground flex items-center gap-1.5">
@@ -207,7 +253,7 @@ export function ModelConfigPanel({ config, onChange, disabled }: ModelConfigPane
       <div className="flex flex-wrap gap-1.5 pt-1 border-t">
         <span className="text-[10px] text-muted-foreground self-center">Active:</span>
         <span className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
-          {config.sttService === 'deepgram' ? config.deepgramModel : config.sonioxModel}
+          {config.sttService === 'deepgram' ? config.deepgramModel : config.sttService === 'oristt' ? config.oristtModel : config.sonioxModel}
         </span>
         {config.sttService === 'deepgram' && (
           <>
@@ -224,6 +270,11 @@ export function ModelConfigPanel({ config, onChange, disabled }: ModelConfigPane
               {config.diarize ? 'Diarization on' : 'Diarization off'}
             </span>
           </>
+        )}
+        {config.sttService === 'oristt' && (
+          <span className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
+            {ORISTT_LANGUAGES[config.oristtModel]?.find(l => l.value === config.oristtLanguage)?.label ?? config.oristtLanguage}
+          </span>
         )}
         <span className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
           {config.geminiModel}

@@ -14,4 +14,13 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  server: {
+    proxy: {
+      '/api/oristt': {
+        target: 'https://ori-stt-test.oriserve.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/oristt/, ''),
+      },
+    },
+  },
 })

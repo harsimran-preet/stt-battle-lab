@@ -1,9 +1,10 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Mic2, Sparkles, AlertCircle, Loader2, RefreshCw, Download, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import type { TranscriptResult, AnalysisResult, ModelConfig } from '@/types';
 import { transcribeFile } from '@/services/deepgram';
 import { transcribeSonioxFull } from '@/services/soniox';
+import { transcribeOriSTTFull } from '@/services/oristt';
 import { analyzeTranscript } from '@/services/gemini';
 import { FileUploadZone } from '@/components/FileUploadZone';
 import { TranscriptViewer } from '@/components/TranscriptViewer';
@@ -61,11 +62,74 @@ export default function TranscribePage() {
     deepgramLanguage: 'en',
     diarize: true,
     sonioxModel: 'stt-async-v4',
+    oristtModel: 'ori-indic-prime-v1',
+    oristtLanguage: 'hi',
     geminiModel: 'gemini-2.5-flash',
   });
+  const [fileNameHint, setFileNameHint] = useState<string | null>(null);
+
+  const isTranscribing = step === 'transcribing';
+  const isAnalyzing = step === 'analyzing';
+  const isBusy = isTranscribing || isAnalyzing;
+  const isBusyRef = useRef(false);
+  isBusyRef.current = isBusy;
+  const isRestoredRef = useRef(false);
+
+  // ── sessionStorage restore (once on mount) ──
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('stt_transcribe_state');
+      if (!raw) { isRestoredRef.current = true; return; }
+      const s = JSON.parse(raw);
+      const safeStep: Step = (s.step === 'transcribing' || s.step === 'analyzing')
+        ? 'error' : (s.step ?? 'idle');
+      setStep(safeStep);
+      if (s.transcript) setTranscript(s.transcript);
+      if (s.analysis) setAnalysis(s.analysis);
+      if (safeStep === 'error' && !s.error) {
+        setError(
+          s.step === 'analyzing'
+            ? 'Analysis was interrupted — re-run Analyze to get results.'
+            : 'Transcription was interrupted — please re-transcribe.'
+        );
+      } else if (s.error !== undefined) {
+        setError(s.error);
+      }
+      if (s.activeTab) setActiveTab(s.activeTab);
+      if (s.modelConfig) setModelConfig(s.modelConfig);
+      if (s.fileNameHint) setFileNameHint(s.fileNameHint);
+    } catch {
+      // Corrupt storage — ignore
+    }
+    isRestoredRef.current = true;
+  }, []);
+
+  // ── sessionStorage save (on relevant state changes) ──
+  useEffect(() => {
+    if (!isRestoredRef.current) return;
+    try {
+      sessionStorage.setItem('stt_transcribe_state', JSON.stringify({
+        step, transcript, analysis, error, activeTab, modelConfig, fileNameHint,
+      }));
+    } catch {
+      // Storage full — ignore
+    }
+  }, [step, transcript, analysis, error, activeTab, modelConfig, fileNameHint]);
+
+  // ── beforeunload guard ──
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (!isBusyRef.current) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, []);
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file);
+    setFileNameHint(file.name);
     setTranscript(null);
     setAnalysis(null);
     setError(null);
@@ -74,11 +138,13 @@ export default function TranscribePage() {
 
   const handleClear = () => {
     setSelectedFile(null);
+    setFileNameHint(null);
     setTranscript(null);
     setAnalysis(null);
     setError(null);
     setStep('idle');
     setActiveTab('transcript');
+    sessionStorage.removeItem('stt_transcribe_state');
   };
 
   const handleTranscribe = async () => {
@@ -88,6 +154,8 @@ export default function TranscribePage() {
     try {
       const result = modelConfig.sttService === 'soniox'
         ? await transcribeSonioxFull(selectedFile, modelConfig.sonioxModel)
+        : modelConfig.sttService === 'oristt'
+        ? await transcribeOriSTTFull(selectedFile, modelConfig.oristtModel, modelConfig.oristtLanguage)
         : await transcribeFile(selectedFile, modelConfig.deepgramModel, modelConfig.deepgramLanguage, modelConfig.diarize);
       setTranscript(result);
       setStep('transcript_done');
@@ -106,11 +174,12 @@ export default function TranscribePage() {
   };
 
   const handleAnalyze = async () => {
-    if (!transcript || !selectedFile) return;
+    const fileName = selectedFile?.name ?? fileNameHint ?? 'unknown';
+    if (!transcript) return;
     setError(null);
     setStep('analyzing');
     try {
-      const result = await analyzeTranscript(transcript, selectedFile.name, modelConfig.geminiModel);
+      const result = await analyzeTranscript(transcript, fileName, modelConfig.geminiModel);
       setAnalysis(result);
       setStep('done');
       setActiveTab('analysis');
@@ -137,9 +206,6 @@ export default function TranscribePage() {
     URL.revokeObjectURL(url);
   };
 
-  const isTranscribing = step === 'transcribing';
-  const isAnalyzing = step === 'analyzing';
-  const isBusy = isTranscribing || isAnalyzing;
   const hasTranscript = transcript !== null;
   const hasAnalysis = analysis !== null;
 
@@ -165,6 +231,14 @@ export default function TranscribePage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {!selectedFile && fileNameHint && (
+                <div className="flex items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700 px-4 py-3">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+                  <p className="text-sm text-amber-800 dark:text-amber-300">
+                    Session restored — re-upload <span className="font-semibold">{fileNameHint}</span> to transcribe again.
+                  </p>
+                </div>
+              )}
               <FileUploadZone
                 onFileSelect={handleFileSelect}
                 selectedFile={selectedFile}

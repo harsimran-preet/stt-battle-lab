@@ -90,11 +90,13 @@ export interface AnalysisResult {
 
 // Model configuration
 export interface ModelConfig {
-  sttService: 'deepgram' | 'soniox';
+  sttService: 'deepgram' | 'soniox' | 'oristt';
   deepgramModel: string;
   deepgramLanguage: string;
   diarize: boolean;
   sonioxModel: string;
+  oristtModel: string;
+  oristtLanguage: string;
   geminiModel: string;
 }
 
@@ -145,7 +147,7 @@ export const DEEPGRAM_LANGUAGES = [
 
 // ─── Battle types ────────────────────────────────────────────────────────────
 
-export type STTService = 'deepgram' | 'soniox' | 'gemini';
+export type STTService = 'deepgram' | 'soniox' | 'gemini' | 'oristt';
 
 export interface BattleSlotConfig {
   service: STTService;
@@ -179,6 +181,33 @@ export const GEMINI_STT_MODELS = [
   { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
   { value: 'gemini-1.5-pro',   label: 'Gemini 1.5 Pro' },
 ] as const;
+
+export const ORISTT_MODELS = [
+  { value: 'ori-indic-prime-v1', label: 'Ori Indic Prime v1 (13 langs)' },
+  { value: 'ori-prime-v2.3',    label: 'Ori Prime v2.3 (Hinglish)' },
+] as const;
+
+export const ORISTT_LANGUAGES: Record<string, readonly { value: string; label: string }[]> = {
+  'ori-indic-prime-v1': [
+    { value: 'as', label: 'Assamese' },
+    { value: 'bn', label: 'Bengali' },
+    { value: 'gu', label: 'Gujarati' },
+    { value: 'hi', label: 'Hindi' },
+    { value: 'kn', label: 'Kannada' },
+    { value: 'en', label: 'English' },
+    { value: 'ml', label: 'Malayalam' },
+    { value: 'mr', label: 'Marathi' },
+    { value: 'ne', label: 'Nepali' },
+    { value: 'or', label: 'Odia' },
+    { value: 'pa', label: 'Punjabi' },
+    { value: 'ta', label: 'Tamil' },
+    { value: 'te', label: 'Telugu' },
+  ],
+  'ori-prime-v2.3': [
+    { value: 'hi', label: 'Hindi' },
+    { value: 'en', label: 'English' },
+  ],
+} as const;
 
 export type AppView = 'transcribe' | 'analysis';
 
