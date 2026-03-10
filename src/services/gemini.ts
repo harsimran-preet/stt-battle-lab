@@ -126,6 +126,23 @@ ${result.rawTranscript || ''}`;
   };
 }
 
+export async function translateText(
+  text: string,
+  geminiModel = 'gemini-2.5-flash',
+): Promise<string> {
+  if (!GOOGLE_API_KEY) {
+    throw new Error('VITE_GOOGLE_API_KEY is not set in your .env file');
+  }
+
+  const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
+  const model = genAI.getGenerativeModel({ model: geminiModel });
+
+  const prompt = `Translate the following text to English. Preserve the meaning as accurately as possible. Return ONLY the translated text — no commentary, no labels, no extra formatting.\n\n${text}`;
+
+  const response = await model.generateContent(prompt);
+  return response.response.text().trim();
+}
+
 // ─── Gemini as STT ───────────────────────────────────────────────────────────
 // Gemini supports inline audio up to ~20 MB. Larger files will throw.
 

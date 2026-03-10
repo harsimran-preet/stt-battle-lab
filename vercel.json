@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/oristt/:path*",
+      "destination": "https://ori-stt-test.oriserve.com/:path*"
+    }
+  ]
+}

@@ -4,9 +4,7 @@
 import type { TranscriptResult } from '@/types';
 
 const ORISTT_API_KEY = import.meta.env.VITE_ORISTT_API_KEY as string;
-const ORISTT_API_URL = import.meta.env.DEV
-  ? '/api/oristt/openai/v1/audio/transcriptions'
-  : 'https://ori-stt-test.oriserve.com/openai/v1/audio/transcriptions';
+const ORISTT_API_URL = '/api/oristt/openai/v1/audio/transcriptions';
 
 interface OriSTTResponse {
   text: string;

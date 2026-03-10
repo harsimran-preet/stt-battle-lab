@@ -88,11 +88,16 @@ export function transcribeFileStreaming(
     };
 
     ws.onopen = async () => {
-      const buffer = await file.arrayBuffer();
-      const CHUNK = 16_384; // 16 KB — avoids overwhelming the socket
-      for (let i = 0; i < buffer.byteLength; i += CHUNK) {
-        if (ws.readyState !== WebSocket.OPEN) break;
-        ws.send(buffer.slice(i, i + CHUNK));
+      // Stream the file in chunks as we read — avoids loading the entire file into memory first
+      const reader = file.stream().getReader();
+      try {
+        while (true) {
+          const { done: eof, value } = await reader.read();
+          if (eof || ws.readyState !== WebSocket.OPEN) break;
+          ws.send(value);
+        }
+      } finally {
+        reader.releaseLock();
       }
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'CloseStream' }));

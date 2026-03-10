@@ -13,8 +13,8 @@ import type { TranscriptResult } from '@/types';
 const SONIOX_API_KEY = import.meta.env.VITE_SONIOX_KEY as string;
 const BASE = 'https://api.soniox.com/v1';
 
-const POLL_INTERVAL_MS = 2000;
-const POLL_MAX_ATTEMPTS = 90; // ~3 minutes max
+const POLL_INTERVAL_MS = 1000;
+const POLL_MAX_ATTEMPTS = 180; // ~3 minutes max
 
 // ─── Internal types ───────────────────────────────────────────────────────────
 
@@ -83,7 +83,7 @@ async function pollUntilDone(
   onStatus?: (msg: string) => void,
 ): Promise<void> {
   for (let attempt = 0; attempt < POLL_MAX_ATTEMPTS; attempt++) {
-    await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
+    // Check status first, then sleep — avoids a blind wait when job is already done
     const data = await sonioxFetch<SonioxTranscription>(`/transcriptions/${transcriptionId}`);
     if (data.status === 'completed') { onStatus?.('Finalising…'); return; }
     if (data.status === 'failed') {
@@ -91,6 +91,7 @@ async function pollUntilDone(
     }
     const elapsed = ((attempt + 1) * POLL_INTERVAL_MS / 1000).toFixed(0);
     onStatus?.(data.status === 'queued' ? `Queued… ${elapsed}s` : `Processing… ${elapsed}s`);
+    await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
   }
   throw new Error('Soniox transcription timed out after 3 minutes');
 }
