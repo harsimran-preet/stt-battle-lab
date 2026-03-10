@@ -1,6 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { Mic2, Lock, Eye, EyeOff } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 const SESSION_KEY = 'stt_battle_lab_auth';
@@ -56,17 +58,15 @@ export default function AuthGate({ children }: { children: ReactNode }) {
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="relative">
             <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input
+            <Input
               type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={e => { setPassword(e.target.value); setError(''); }}
               placeholder="Password"
               autoFocus
               className={cn(
-                'w-full rounded-lg border bg-background py-2.5 pl-9 pr-10 text-sm shadow-sm transition-colors',
-                'placeholder:text-muted-foreground text-foreground',
-                'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1',
-                error ? 'border-destructive focus:ring-destructive' : 'border-input',
+                'pl-9 pr-10',
+                error && 'border-destructive focus-visible:ring-destructive',
               )}
             />
             <button
@@ -84,17 +84,9 @@ export default function AuthGate({ children }: { children: ReactNode }) {
             <p className="text-xs text-destructive">{error}</p>
           )}
 
-          <button
-            type="submit"
-            disabled={!password}
-            className={cn(
-              'w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm',
-              'transition-opacity hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1',
-              'disabled:cursor-not-allowed disabled:opacity-50',
-            )}
-          >
+          <Button type="submit" disabled={!password} className="w-full">
             Unlock
-          </button>
+          </Button>
         </form>
       </div>
     </div>

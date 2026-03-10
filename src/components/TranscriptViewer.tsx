@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Clock, Users, BarChart2, FileText, AlertTriangle, ChevronDown, ChevronRight, Search, Languages, Loader2, Play } from 'lucide-react';
 
 interface TranscriptViewerProps {
@@ -215,26 +216,29 @@ export function TranscriptViewer({ result, geminiModel, onSeekTo }: TranscriptVi
       )}
 
       {/* Raw JSON debug section */}
-      <div className="rounded-lg border bg-muted/20">
-        <button
-          onClick={() => setShowRaw(v => !v)}
-          className="flex w-full items-center justify-between px-3.5 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <span className="flex items-center gap-1.5"><Search className="h-3.5 w-3.5" /> Raw Deepgram Response (debug)</span>
-          {showRaw
-            ? <ChevronDown className="h-3.5 w-3.5" />
-            : <ChevronRight className="h-3.5 w-3.5" />}
-        </button>
-        {showRaw && (
-          <div className="border-t">
-            <ScrollArea className="h-64">
-              <pre className="p-3 text-[11px] leading-relaxed text-muted-foreground font-mono whitespace-pre-wrap break-all">
-                {JSON.stringify(result.rawResponse, null, 2)}
-              </pre>
-            </ScrollArea>
-          </div>
-        )}
-      </div>
+      <Collapsible open={showRaw} onOpenChange={setShowRaw}>
+        <div className="rounded-lg border bg-muted/20">
+          <CollapsibleTrigger asChild>
+            <button
+              className="flex w-full items-center justify-between px-3.5 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <span className="flex items-center gap-1.5"><Search className="h-3.5 w-3.5" /> Raw Deepgram Response (debug)</span>
+              {showRaw
+                ? <ChevronDown className="h-3.5 w-3.5" />
+                : <ChevronRight className="h-3.5 w-3.5" />}
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="border-t">
+              <ScrollArea className="h-64">
+                <pre className="p-3 text-[11px] leading-relaxed text-muted-foreground font-mono whitespace-pre-wrap break-all">
+                  {JSON.stringify(result.rawResponse, null, 2)}
+                </pre>
+              </ScrollArea>
+            </div>
+          </CollapsibleContent>
+        </div>
+      </Collapsible>
     </div>
   );
 }

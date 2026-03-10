@@ -7,18 +7,21 @@ import type {
   STTService, BattleSlotConfig, BattleSlotResult, BattleVerdict,
   BattleSlotConfig as SlotCfg,
 } from '@/types';
-import { DEEPGRAM_MODELS, DEEPGRAM_LANGUAGES, SONIOX_MODELS, GEMINI_STT_MODELS, ORISTT_MODELS, ORISTT_LANGUAGES } from '@/types';
+import { DEEPGRAM_MODELS, DEEPGRAM_LANGUAGES, SONIOX_MODELS, SONIOX_LANGUAGES, ORISTT_MODELS, ORISTT_LANGUAGES } from '@/types';
 import { transcribeFile } from '@/services/deepgram';
 import { transcribeWithSoniox } from '@/services/soniox';
-import { transcribeWithGemini, judgeTranscripts, translateText } from '@/services/gemini';
+import { judgeTranscripts, translateText } from '@/services/gemini';
 import { transcribeWithOriSTT } from '@/services/oristt';
 import { FileUploadZone } from '@/components/FileUploadZone';
 import { AudioPlayer, type AudioPlayerHandle } from '@/components/AudioPlayer';
+import { LanguageCombobox } from '@/components/LanguageCombobox';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { cn, downloadCsv } from '@/lib/utils';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -34,11 +37,6 @@ const SERVICE_META: Record<STTService, { label: string; color: string; badgeClas
     color: 'purple',
     badgeClass: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 border-purple-300 dark:border-purple-700',
   },
-  gemini: {
-    label: 'Gemini STT',
-    color: 'emerald',
-    badgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700',
-  },
   oristt: {
     label: 'OriSTT',
     color: 'amber',
@@ -49,7 +47,6 @@ const SERVICE_META: Record<STTService, { label: string; color: string; badgeClas
 const MODEL_OPTIONS: Record<STTService, readonly { value: string; label: string }[]> = {
   deepgram: DEEPGRAM_MODELS,
   soniox: SONIOX_MODELS,
-  gemini: GEMINI_STT_MODELS,
   oristt: ORISTT_MODELS,
 };
 
@@ -81,9 +78,7 @@ async function runSlot(
       return { transcript };
     }
     case 'soniox':
-      return transcribeWithSoniox(file, cfg.model, onStatus);
-    case 'gemini':
-      return transcribeWithGemini(file, cfg.model, onChunk);
+      return transcribeWithSoniox(file, cfg.model, onStatus, cfg.language || undefined);
     case 'oristt': {
       onStatus('Transcribing…');
       const result = await transcribeWithOriSTT(file, cfg.model, cfg.language);
@@ -94,37 +89,6 @@ async function runSlot(
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
-
-function SelectField({
-  value, onChange, disabled, options,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  disabled?: boolean;
-  options: readonly { value: string; label: string }[];
-}) {
-  return (
-    <div className="relative">
-      <select
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        disabled={disabled}
-        className={cn(
-          'w-full appearance-none rounded-md border border-input bg-background px-3 py-2 pr-8 text-sm shadow-sm',
-          'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1',
-          'disabled:cursor-not-allowed disabled:opacity-50 text-foreground',
-        )}
-      >
-        {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
-      <div className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center">
-        <svg className="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </div>
-    </div>
-  );
-}
 
 function SlotConfigPanel({
   side, config, onChange, disabled,
@@ -152,9 +116,9 @@ function SlotConfigPanel({
 
       <div className="space-y-2">
         <Label className="text-xs font-medium text-muted-foreground">Service</Label>
-        <SelectField
+        <Select
           value={config.service}
-          onChange={v => {
+          onValueChange={v => {
             const svc = v as STTService;
             const model = MODEL_OPTIONS[svc][0].value;
             const language = svc === 'oristt'
@@ -163,15 +127,23 @@ function SlotConfigPanel({
             onChange({ ...config, service: svc, model, language });
           }}
           disabled={disabled}
-          options={Object.entries(SERVICE_META).map(([v, m]) => ({ value: v, label: m.label }))}
-        />
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(SERVICE_META).map(([v, m]) => (
+              <SelectItem key={v} value={v}>{m.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="space-y-2">
         <Label className="text-xs font-medium text-muted-foreground">Model</Label>
-        <SelectField
+        <Select
           value={config.model}
-          onChange={v => {
+          onValueChange={v => {
             const updated = { ...config, model: v };
             if (config.service === 'oristt') {
               const langs = ORISTT_LANGUAGES[v];
@@ -182,41 +154,53 @@ function SlotConfigPanel({
             onChange(updated);
           }}
           disabled={disabled}
-          options={MODEL_OPTIONS[config.service]}
-        />
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {MODEL_OPTIONS[config.service].map(o => (
+              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {config.service === 'deepgram' && (
         <div className="space-y-2">
           <Label className="text-xs font-medium text-muted-foreground">Language</Label>
-          <div className="relative">
-            <input
-              list={`lang-list-${side}`}
-              value={config.language}
-              onChange={e => onChange({ ...config, language: e.target.value.trim() })}
-              disabled={disabled}
-              placeholder="e.g. en, es, fr…"
-              className={cn(
-                'w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm',
-                'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1',
-                'disabled:cursor-not-allowed disabled:opacity-50 text-foreground placeholder:text-muted-foreground',
-              )}
-            />
-            <datalist id={`lang-list-${side}`}>
-              {DEEPGRAM_LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-            </datalist>
-          </div>
+          <LanguageCombobox
+            value={config.language}
+            onChange={v => onChange({ ...config, language: v })}
+            disabled={disabled}
+            options={DEEPGRAM_LANGUAGES}
+            placeholder="Search languages…"
+          />
+        </div>
+      )}
+
+      {config.service === 'soniox' && (
+        <div className="space-y-2">
+          <Label className="text-xs font-medium text-muted-foreground">Language</Label>
+          <LanguageCombobox
+            value={config.language}
+            onChange={v => onChange({ ...config, language: v })}
+            disabled={disabled}
+            options={SONIOX_LANGUAGES}
+            placeholder="Search languages…"
+          />
         </div>
       )}
 
       {config.service === 'oristt' && (
         <div className="space-y-2">
           <Label className="text-xs font-medium text-muted-foreground">Language</Label>
-          <SelectField
+          <LanguageCombobox
             value={config.language}
             onChange={v => onChange({ ...config, language: v })}
             disabled={disabled}
             options={ORISTT_LANGUAGES[config.model] ?? ORISTT_LANGUAGES['ori-indic-prime-v1']}
+            placeholder="Search languages…"
           />
         </div>
       )}
@@ -759,9 +743,10 @@ export default function BattlePage() {
         </p>
       </div>
 
-      {/* File upload + audio player */}
+      {/* Step 1 — File upload + audio player */}
       <Card>
         <CardContent className="pt-4 space-y-3">
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Step 1</span>
           {!file && fileNameHint && (
             <div className="flex items-center gap-3 rounded-lg border border-amber-300 bg-amber-100 dark:bg-amber-950/20 dark:border-amber-700 px-4 py-3">
               <AlertCircle className="h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
@@ -780,87 +765,82 @@ export default function BattlePage() {
         </CardContent>
       </Card>
 
-      {/* Slot configs */}
+      {/* Step 2 — Slot configs */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Card>
-          <CardContent className="pt-4">
+          <CardContent className="pt-4 space-y-3">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Step 2a</span>
             <SlotConfigPanel side="A" config={slotAConfig} onChange={setSlotAConfig} disabled={isRunning} />
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-4">
+          <CardContent className="pt-4 space-y-3">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Step 2b</span>
             <SlotConfigPanel side="B" config={slotBConfig} onChange={setSlotBConfig} disabled={isRunning} />
           </CardContent>
         </Card>
       </div>
 
-      {/* Judge toggle + model + Run button */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        <div className="flex items-center gap-3 flex-1">
-          <div className="flex items-center gap-2">
-            <button
-              role="switch"
-              aria-checked={judgeEnabled}
-              onClick={() => !isRunning && setJudgeEnabled(v => !v)}
-              disabled={isRunning}
-              className={cn(
-                'relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-                'disabled:cursor-not-allowed disabled:opacity-50',
-                judgeEnabled ? 'bg-primary' : 'bg-muted-foreground/30 dark:bg-muted-foreground/40',
+      {/* Step 3 — Judge toggle + model + Run button */}
+      <Card>
+        <CardContent className="pt-4 space-y-3">
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Step 3</span>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="flex items-center gap-3 flex-1">
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="judge-toggle"
+                  checked={judgeEnabled}
+                  onCheckedChange={setJudgeEnabled}
+                  disabled={isRunning}
+                />
+                <Label className="text-xs text-muted-foreground whitespace-nowrap cursor-pointer" htmlFor="judge-toggle">
+                  Gemini Judge
+                </Label>
+              </div>
+              {judgeEnabled && (
+                <div className="w-48">
+                  <Select value={judgeModel} onValueChange={setJudgeModel} disabled={isRunning}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
+                      <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               )}
-            >
-              <span className={cn(
-                'pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200',
-                judgeEnabled ? 'translate-x-4' : 'translate-x-0',
-              )} />
-            </button>
-            <Label className="text-xs text-muted-foreground whitespace-nowrap cursor-pointer" onClick={() => !isRunning && setJudgeEnabled(v => !v)}>
-              Gemini Judge
-            </Label>
-          </div>
-          {judgeEnabled && (
-            <div className="w-48">
-              <SelectField
-                value={judgeModel}
-                onChange={setJudgeModel}
-                disabled={isRunning}
-                options={[
-                  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
-                  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
-                  { value: 'gemini-1.5-pro',   label: 'Gemini 1.5 Pro' },
-                ]}
-              />
             </div>
-          )}
-        </div>
-        <div className="flex gap-2">
-          {(slotAResult.status !== 'idle' || slotBResult.status !== 'idle') && (
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={() => { setSlotAResult(IDLE_RESULT); setSlotBResult(IDLE_RESULT); setVerdict(null); }}
-              disabled={isRunning}
-            >
-              <RotateCcw className="h-4 w-4" />
-            </Button>
-          )}
-          <Button
-            size="lg"
-            className="flex-1 sm:flex-none gap-2"
-            onClick={handleRunBattle}
-            disabled={!file || isRunning}
-          >
-            {isRunning && !judging ? (
-              <><Loader2 className="h-4 w-4 animate-spin" />Running Battle…</>
-            ) : judging ? (
-              <><Loader2 className="h-4 w-4 animate-spin" />Judging…</>
-            ) : (
-              <><Swords className="h-4 w-4" />Run Battle</>
-            )}
-          </Button>
-        </div>
-      </div>
+            <div className="flex gap-2">
+              {(slotAResult.status !== 'idle' || slotBResult.status !== 'idle') && (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() => { setSlotAResult(IDLE_RESULT); setSlotBResult(IDLE_RESULT); setVerdict(null); }}
+                  disabled={isRunning}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
+              )}
+              <Button
+                size="lg"
+                className="flex-1 sm:flex-none gap-2"
+                onClick={handleRunBattle}
+                disabled={!file || isRunning}
+              >
+                {isRunning && !judging ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" />Running Battle…</>
+                ) : judging ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" />Judging…</>
+                ) : (
+                  <><Swords className="h-4 w-4" />Run Battle</>
+                )}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Results — side by side */}
       {(slotAResult.status !== 'idle' || slotBResult.status !== 'idle') && (

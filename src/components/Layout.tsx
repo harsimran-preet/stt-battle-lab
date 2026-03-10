@@ -4,6 +4,7 @@ import { Mic2, Github, Moon, Sun, Swords, BookOpen, ExternalLink, User } from 'l
 import { Toaster } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
@@ -116,20 +117,36 @@ export default function Layout() {
       <div className="flex flex-1 flex-col pl-56">
         {/* Topbar */}
         <header className="sticky top-0 z-30 flex h-14 items-center justify-end gap-1 border-b bg-card px-6">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => setDark(d => !d)}
-            aria-label="Toggle dark mode"
-          >
-            {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </Button>
-          <a href="https://github.com/harsimran-preet" target="_blank" rel="noreferrer">
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <Github className="h-4 w-4" />
-            </Button>
-          </a>
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setDark(d => !d)}
+                  aria-label="Toggle dark mode"
+                >
+                  {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{dark ? 'Light mode' : 'Dark mode'}</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <a href="https://github.com/harsimran-preet" target="_blank" rel="noreferrer">
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Github className="h-4 w-4" />
+                  </Button>
+                </a>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>GitHub</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </header>
 
         <main className="flex-1 p-8">

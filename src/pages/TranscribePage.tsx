@@ -63,6 +63,7 @@ export default function TranscribePage() {
     deepgramLanguage: 'en',
     diarize: true,
     sonioxModel: 'stt-async-v4',
+    sonioxLanguage: '',
     oristtModel: 'ori-indic-prime-v1',
     oristtLanguage: 'hi',
     geminiModel: 'gemini-2.5-flash',
@@ -154,7 +155,7 @@ export default function TranscribePage() {
     setStep('transcribing');
     try {
       const result = modelConfig.sttService === 'soniox'
-        ? await transcribeSonioxFull(selectedFile, modelConfig.sonioxModel)
+        ? await transcribeSonioxFull(selectedFile, modelConfig.sonioxModel, undefined, modelConfig.sonioxLanguage || undefined)
         : modelConfig.sttService === 'oristt'
         ? await transcribeOriSTTFull(selectedFile, modelConfig.oristtModel, modelConfig.oristtLanguage)
         : await transcribeFile(selectedFile, modelConfig.deepgramModel, modelConfig.deepgramLanguage, modelConfig.diarize);
@@ -269,6 +270,7 @@ export default function TranscribePage() {
         <div className="space-y-4">
           <Card>
             <CardHeader className="pb-3">
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Step 1</span>
               <CardTitle className="text-base">Audio Input</CardTitle>
               <CardDescription className="text-sm">
                 Upload an audio or video file to transcribe using Deepgram Nova-3
@@ -333,7 +335,10 @@ export default function TranscribePage() {
             </CardContent>
           </Card>
 
-          <ModelConfigPanel config={modelConfig} onChange={setModelConfig} disabled={isBusy} />
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 ml-1">Step 2</span>
+            <ModelConfigPanel config={modelConfig} onChange={setModelConfig} disabled={isBusy} />
+          </div>
         </div>
 
         {/* Right Panel – Results */}

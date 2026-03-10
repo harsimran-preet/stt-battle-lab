@@ -69,11 +69,13 @@ async function uploadFile(file: File): Promise<string> {
   return data.id;
 }
 
-async function createTranscription(fileId: string, model: string): Promise<string> {
+async function createTranscription(fileId: string, model: string, language?: string): Promise<string> {
+  const payload: Record<string, unknown> = { file_id: fileId, model };
+  if (language) payload.language_hints = [language];
   const data = await sonioxFetch<SonioxTranscription>('/transcriptions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ file_id: fileId, model }),
+    body: JSON.stringify(payload),
   });
   return data.id;
 }
@@ -111,6 +113,7 @@ export async function transcribeWithSoniox(
   file: File,
   model = 'stt-async-v4',
   onStatus?: (msg: string) => void,
+  language?: string,
 ): Promise<{ transcript: string }> {
   if (!SONIOX_API_KEY) throw new Error('VITE_SONIOX_KEY is not set in your .env file');
 
@@ -118,7 +121,7 @@ export async function transcribeWithSoniox(
   const fileId = await uploadFile(file);
   try {
     onStatus?.('Queued…');
-    const transcriptionId = await createTranscription(fileId, model);
+    const transcriptionId = await createTranscription(fileId, model, language);
     await pollUntilDone(transcriptionId, onStatus);
     const data = await fetchTranscript(transcriptionId);
     return { transcript: data.text.trim() };
@@ -132,6 +135,7 @@ export async function transcribeSonioxFull(
   file: File,
   model = 'stt-async-v4',
   onStatus?: (msg: string) => void,
+  language?: string,
 ): Promise<TranscriptResult> {
   if (!SONIOX_API_KEY) throw new Error('VITE_SONIOX_KEY is not set in your .env file');
 
@@ -140,7 +144,7 @@ export async function transcribeSonioxFull(
   let data: SonioxTranscript;
   try {
     onStatus?.('Queued…');
-    const transcriptionId = await createTranscription(fileId, model);
+    const transcriptionId = await createTranscription(fileId, model, language);
     await pollUntilDone(transcriptionId, onStatus);
     data = await fetchTranscript(transcriptionId);
   } finally {
