@@ -82,7 +82,7 @@ function AudioPlayer({ file }, ref) {
       {/* Seek bar */}
       <div className="group relative flex items-center gap-0">
         {/* Track */}
-        <div className="relative h-2 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+        <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted">
           <div
             className="h-full rounded-full bg-primary transition-none"
             style={{ width: `${progress}%` }}
@@ -90,7 +90,7 @@ function AudioPlayer({ file }, ref) {
         </div>
         {/* Thumb (always visible, moves with progress) */}
         <div
-          className="pointer-events-none absolute top-1/2 -translate-y-1/2 h-3.5 w-3.5 rounded-full border-2 border-primary bg-white dark:bg-zinc-900 shadow transition-none"
+          className="pointer-events-none absolute top-1/2 -translate-y-1/2 h-3.5 w-3.5 rounded-full border-2 border-primary bg-background shadow transition-none"
           style={{ left: `calc(${progress}% - 7px)` }}
         />
         {/* Invisible range input for interaction */}
