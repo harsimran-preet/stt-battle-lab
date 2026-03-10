@@ -81,7 +81,7 @@ export default function AboutPage() {
             <Card key={title}>
               <CardContent className="p-5">
                 <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                  <Icon className="h-4.5 w-4.5 text-primary" />
+                  <Icon className="h-5 w-5 text-primary" />
                 </div>
                 <h3 className="text-sm font-semibold text-foreground">{title}</h3>
                 <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p>
