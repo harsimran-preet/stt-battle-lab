@@ -210,45 +210,111 @@ export default function TranscribePage() {
 
   const handleDownloadCSV = () => {
     if (!transcript) return;
-    const rows: (string | number | null)[][] = [];
     const fileName = selectedFile?.name ?? fileNameHint ?? 'transcript';
 
-    // Metadata
-    rows.push(['--- Metadata ---']);
-    rows.push(['File', fileName]);
-    rows.push(['Service', modelConfig.sttService]);
-    rows.push(['Duration', fmtTime(transcript.duration)]);
-    rows.push(['Confidence', `${(transcript.confidence * 100).toFixed(1)}%`]);
-    rows.push(['Words', transcript.words.length]);
-    rows.push([]);
+    const uniqueSpeakers = [...new Set(transcript.speakerBlocks.map(b => b.speaker))].sort((a, b) => a - b);
+    const hasDiarization = transcript.speakerBlocks.length > 0 && uniqueSpeakers.length > 1;
 
-    // Analysis scores
-    if (analysis) {
-      rows.push(['--- Analysis ---']);
-      rows.push(['Overall Score', `${analysis.deepgramAnalysis.overallScore.toFixed(1)}/10`]);
-      rows.push(['Verdict', analysis.deepgramAnalysis.verdict]);
-      rows.push(['Summary', analysis.deepgramAnalysis.summary]);
-      rows.push([]);
-      rows.push(['Factor', 'Score', 'Feedback']);
-      for (const s of analysis.deepgramAnalysis.scores) {
-        rows.push([s.category, s.score, s.feedback]);
+    // Compute per-speaker talk time
+    const speakerTalkTime: Record<number, number> = {};
+    for (const b of transcript.speakerBlocks) {
+      speakerTalkTime[b.speaker] = (speakerTalkTime[b.speaker] ?? 0) + (b.end - b.start);
+    }
+    const totalTalkTime = Object.values(speakerTalkTime).reduce((a, b) => a + b, 0) || transcript.duration;
+
+    // Build dynamic score columns from analysis
+    const scoreCategories = analysis?.deepgramAnalysis.scores.map(s => s.category) ?? [];
+
+    // Header row
+    const header: string[] = [
+      'File Name',
+      'STT Service',
+      'STT Model',
+      'Language',
+      'Duration (s)',
+      'Duration (formatted)',
+      'Word Count',
+      'Confidence (%)',
+      'Speaker Count',
+      'Diarization',
+    ];
+
+    // Speaker talk-time columns
+    if (hasDiarization) {
+      for (const spk of uniqueSpeakers) {
+        header.push(`Speaker ${spk} Talk Time (s)`);
+        header.push(`Speaker ${spk} Talk Ratio (%)`);
       }
-      rows.push([]);
     }
 
-    // Transcript
-    if (transcript.speakerBlocks.length > 0) {
-      rows.push(['--- Diarized Transcript ---']);
-      rows.push(['Speaker', 'Start', 'End', 'Text']);
-      for (const b of transcript.speakerBlocks) {
-        rows.push([`Speaker ${b.speaker}`, fmtTime(b.start), fmtTime(b.end), b.text]);
-      }
-    } else {
-      rows.push(['--- Full Transcript ---']);
-      rows.push([transcript.rawTranscript]);
+    // Analysis columns
+    header.push(
+      'Overall Score',
+      'Verdict',
+      'Summary',
+    );
+    for (const cat of scoreCategories) {
+      header.push(`${cat} Score`);
+      header.push(`${cat} Feedback`);
     }
 
-    downloadCsv(rows, `${fileName}-results.csv`);
+    header.push('Full Transcript');
+
+    // Diarized transcript as combined text with speaker labels
+    if (hasDiarization) {
+      header.push('Diarized Transcript');
+    }
+
+    // Data row
+    const activeModel = modelConfig.sttService === 'deepgram' ? modelConfig.deepgramModel
+      : modelConfig.sttService === 'soniox' ? modelConfig.sonioxModel
+      : modelConfig.oristtModel;
+    const activeLang = modelConfig.sttService === 'deepgram' ? modelConfig.deepgramLanguage
+      : modelConfig.sttService === 'soniox' ? modelConfig.sonioxLanguage
+      : modelConfig.oristtLanguage;
+
+    const row: (string | number | null)[] = [
+      fileName,
+      modelConfig.sttService,
+      activeModel,
+      activeLang,
+      Number(transcript.duration.toFixed(2)),
+      fmtTime(transcript.duration),
+      transcript.words.length,
+      Number((transcript.confidence * 100).toFixed(1)),
+      hasDiarization ? uniqueSpeakers.length : (transcript.speakerBlocks.length > 0 ? 1 : 0),
+      hasDiarization ? 'Yes' : 'No',
+    ];
+
+    if (hasDiarization) {
+      for (const spk of uniqueSpeakers) {
+        const t = speakerTalkTime[spk] ?? 0;
+        row.push(Number(t.toFixed(2)));
+        row.push(Number(((t / totalTalkTime) * 100).toFixed(1)));
+      }
+    }
+
+    row.push(
+      analysis ? Number(analysis.deepgramAnalysis.overallScore.toFixed(1)) : null,
+      analysis?.deepgramAnalysis.verdict ?? null,
+      analysis?.deepgramAnalysis.summary ?? null,
+    );
+    for (const cat of scoreCategories) {
+      const s = analysis!.deepgramAnalysis.scores.find(sc => sc.category === cat);
+      row.push(s?.score ?? null);
+      row.push(s?.feedback ?? null);
+    }
+
+    row.push(transcript.rawTranscript);
+
+    if (hasDiarization) {
+      const diarized = transcript.speakerBlocks
+        .map(b => `[Speaker ${b.speaker} | ${fmtTime(b.start)}-${fmtTime(b.end)}] ${b.text}`)
+        .join('\n');
+      row.push(diarized);
+    }
+
+    downloadCsv([header, row], `${fileName}-report.csv`);
   };
 
   const hasTranscript = transcript !== null;

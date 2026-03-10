@@ -688,44 +688,93 @@ export default function BattlePage() {
   };
 
   const handleExportCSV = () => {
-    const rows: (string | number | null)[][] = [];
     const fileName = file?.name ?? fileNameHint ?? 'battle';
-
-    rows.push(['--- Battle Results ---']);
-    rows.push(['File', fileName]);
-    rows.push(['Slot A', slotLabel(slotAConfig)]);
-    rows.push(['Slot B', slotLabel(slotBConfig)]);
-    rows.push([]);
-
-    // Transcripts
-    rows.push(['--- Transcripts ---']);
-    rows.push(['Side', 'Service', 'Time (s)', 'Word Count', 'Transcript']);
     const textA = slotAResult.transcript ?? '';
     const textB = slotBResult.transcript ?? '';
-    rows.push(['A', slotLabel(slotAConfig), slotAResult.timeTakenMs ? (slotAResult.timeTakenMs / 1000).toFixed(2) : null, textA ? textA.trim().split(/\s+/).length : 0, textA]);
-    rows.push(['B', slotLabel(slotBConfig), slotBResult.timeTakenMs ? (slotBResult.timeTakenMs / 1000).toFixed(2) : null, textB ? textB.trim().split(/\s+/).length : 0, textB]);
-    rows.push([]);
+    const wordCountA = textA ? textA.trim().split(/\s+/).length : 0;
+    const wordCountB = textB ? textB.trim().split(/\s+/).length : 0;
 
-    // Verdict
-    if (verdict) {
-      rows.push(['--- Verdict ---']);
-      rows.push(['Winner', verdict.winner === 'tie' ? 'Tie' : verdict.winner === 'A' ? slotLabel(slotAConfig) : slotLabel(slotBConfig)]);
-      rows.push(['Overall Score A', verdict.scoreA]);
-      rows.push(['Overall Score B', verdict.scoreB]);
-      rows.push(['Reasoning A', verdict.reasoningA]);
-      rows.push(['Reasoning B', verdict.reasoningB]);
-      rows.push([]);
+    // Build dynamic factor columns from verdict
+    const factors = verdict?.factors ?? [];
 
-      if (verdict.factors?.length) {
-        rows.push(['--- Factor Breakdown ---']);
-        rows.push(['Factor', 'Score A', 'Score B', 'Feedback A', 'Feedback B']);
-        for (const f of verdict.factors) {
-          rows.push([f.factor, f.scoreA, f.scoreB, f.feedbackA, f.feedbackB]);
-        }
-      }
+    // Header
+    const header: string[] = [
+      'File Name',
+      // Slot A config
+      'Slot A Service',
+      'Slot A Model',
+      'Slot A Language',
+      // Slot B config
+      'Slot B Service',
+      'Slot B Model',
+      'Slot B Language',
+      // Slot A results
+      'Slot A Time (s)',
+      'Slot A Word Count',
+      'Slot A Status',
+      // Slot B results
+      'Slot B Time (s)',
+      'Slot B Word Count',
+      'Slot B Status',
+      // Verdict
+      'Winner',
+      'Winner Label',
+      'Overall Score A',
+      'Overall Score B',
+      'Reasoning A',
+      'Reasoning B',
+    ];
+
+    // Dynamic factor columns
+    for (const f of factors) {
+      header.push(`${f.factor} Score A`);
+      header.push(`${f.factor} Score B`);
+      header.push(`${f.factor} Feedback A`);
+      header.push(`${f.factor} Feedback B`);
     }
 
-    downloadCsv(rows, `${fileName}-battle-results.csv`);
+    header.push('Slot A Transcript', 'Slot B Transcript');
+
+    // Data row
+    const winnerLabel = verdict
+      ? (verdict.winner === 'tie' ? 'Tie' : verdict.winner === 'A' ? slotLabel(slotAConfig) : slotLabel(slotBConfig))
+      : null;
+
+    const row: (string | number | null)[] = [
+      fileName,
+      // Slot A config
+      SERVICE_META[slotAConfig.service].label,
+      MODEL_OPTIONS[slotAConfig.service].find(m => m.value === slotAConfig.model)?.label ?? slotAConfig.model,
+      slotAConfig.language,
+      // Slot B config
+      SERVICE_META[slotBConfig.service].label,
+      MODEL_OPTIONS[slotBConfig.service].find(m => m.value === slotBConfig.model)?.label ?? slotBConfig.model,
+      slotBConfig.language,
+      // Slot A results
+      slotAResult.timeTakenMs ? Number((slotAResult.timeTakenMs / 1000).toFixed(2)) : null,
+      wordCountA,
+      slotAResult.status,
+      // Slot B results
+      slotBResult.timeTakenMs ? Number((slotBResult.timeTakenMs / 1000).toFixed(2)) : null,
+      wordCountB,
+      slotBResult.status,
+      // Verdict
+      verdict?.winner ?? null,
+      winnerLabel,
+      verdict?.scoreA ?? null,
+      verdict?.scoreB ?? null,
+      verdict?.reasoningA ?? null,
+      verdict?.reasoningB ?? null,
+    ];
+
+    // Dynamic factor data
+    for (const f of factors) {
+      row.push(f.scoreA, f.scoreB, f.feedbackA, f.feedbackB);
+    }
+
+    row.push(textA, textB);
+
+    downloadCsv([header, row], `${fileName}-battle-report.csv`);
   };
 
   const canExport = slotAResult.status === 'done' || slotBResult.status === 'done';
