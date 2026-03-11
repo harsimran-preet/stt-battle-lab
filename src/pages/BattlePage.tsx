@@ -5,13 +5,9 @@ import {
 import { toast } from 'sonner';
 import type {
   STTService, BattleSlotConfig, BattleSlotResult, BattleVerdict,
-  BattleSlotConfig as SlotCfg,
 } from '@/types';
-import { DEEPGRAM_MODELS, DEEPGRAM_LANGUAGES, SONIOX_MODELS, SONIOX_LANGUAGES, ORISTT_MODELS, ORISTT_LANGUAGES } from '@/types';
-import { transcribeFile } from '@/services/deepgram';
-import { transcribeWithSoniox } from '@/services/soniox';
+import { DEEPGRAM_LANGUAGES, SONIOX_LANGUAGES } from '@/types';
 import { judgeTranscripts, translateText } from '@/services/gemini';
-import { transcribeWithOriSTT } from '@/services/oristt';
 import { FileUploadZone } from '@/components/FileUploadZone';
 import { AudioPlayer, type AudioPlayerHandle } from '@/components/AudioPlayer';
 import { LanguageCombobox } from '@/components/LanguageCombobox';
@@ -23,70 +19,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { cn, downloadCsv } from '@/lib/utils';
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const SERVICE_META: Record<STTService, { label: string; color: string; badgeClass: string }> = {
-  deepgram: {
-    label: 'Deepgram',
-    color: 'blue',
-    badgeClass: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 border-blue-300 dark:border-blue-700',
-  },
-  soniox: {
-    label: 'Soniox',
-    color: 'purple',
-    badgeClass: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 border-purple-300 dark:border-purple-700',
-  },
-  oristt: {
-    label: 'OriSTT',
-    color: 'amber',
-    badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border-amber-300 dark:border-amber-700',
-  },
-};
-
-const MODEL_OPTIONS: Record<STTService, readonly { value: string; label: string }[]> = {
-  deepgram: DEEPGRAM_MODELS,
-  soniox: SONIOX_MODELS,
-  oristt: ORISTT_MODELS,
-};
-
-const DEFAULT_SLOT_A: BattleSlotConfig = { service: 'deepgram', model: 'nova-3', language: 'en' };
-const DEFAULT_SLOT_B: BattleSlotConfig = { service: 'soniox', model: 'stt-async-v4', language: 'en' };
+import { SERVICE_META, MODEL_OPTIONS, DEFAULT_SLOT_A, DEFAULT_SLOT_B, slotLabel, runSlot, ORISTT_LANGUAGES } from '@/lib/battle-utils';
 
 const IDLE_RESULT: BattleSlotResult = { status: 'idle', transcript: null, timeTakenMs: null, error: null };
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function slotLabel(cfg: SlotCfg): string {
-  const svc = SERVICE_META[cfg.service].label;
-  const mdl = MODEL_OPTIONS[cfg.service].find(m => m.value === cfg.model)?.label ?? cfg.model;
-  return `${svc} · ${mdl}`;
-}
-
-async function runSlot(
-  file: File,
-  cfg: BattleSlotConfig,
-  onChunk: (text: string) => void,
-  onStatus: (msg: string) => void,
-): Promise<{ transcript: string }> {
-  switch (cfg.service) {
-    case 'deepgram': {
-      onStatus('Transcribing…');
-      const result = await transcribeFile(file, cfg.model, cfg.language, false);
-      const transcript = result.rawTranscript;
-      onChunk(transcript);
-      return { transcript };
-    }
-    case 'soniox':
-      return transcribeWithSoniox(file, cfg.model, onStatus, cfg.language || undefined);
-    case 'oristt': {
-      onStatus('Transcribing…');
-      const result = await transcribeWithOriSTT(file, cfg.model, cfg.language);
-      onChunk(result.transcript);
-      return result;
-    }
-  }
-}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 

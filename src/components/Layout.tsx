@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { Mic2, Github, Moon, Sun, Swords, BookOpen, ExternalLink, User } from 'lucide-react';
+import { Mic2, Github, Moon, Sun, Swords, Layers, BookOpen, ExternalLink, User } from 'lucide-react';
 import { Toaster } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,8 +8,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
-  { to: '/transcribe', label: 'Transcribe', icon: Mic2,   end: false },
-  { to: '/battle',     label: 'STT Battle', icon: Swords, end: false },
+  { to: '/transcribe',   label: 'Transcribe',    icon: Mic2,   end: false },
+  { to: '/battle',       label: 'STT Battle',    icon: Swords, end: false },
+  { to: '/batch-battle', label: 'Batch Battle',  icon: Layers, end: false },
 ];
 
 const DOC_LINKS = [
