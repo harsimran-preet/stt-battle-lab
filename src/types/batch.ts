@@ -18,6 +18,10 @@ export interface BatchItem {
   slotBError: string | null;
   verdict: BattleVerdict | null;
   judgeError: string | null;
+  originalDuration: number | null;
+  wasTrimmed: boolean | null;
+  trimmedDuration: number | null;
+  trimError: string | null;
 }
 
 export interface BatchConfig {
@@ -30,6 +34,8 @@ export interface BatchConfig {
   concurrency: number;
   totalItems: number;
   inputType: 'zip' | 'excel';
+  maxChunkDuration: number;
+  includeFullTranscripts: boolean;
 }
 
 export interface BatchSession {

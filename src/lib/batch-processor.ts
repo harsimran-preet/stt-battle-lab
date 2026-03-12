@@ -3,6 +3,7 @@ import type { BattleVerdict } from '@/types';
 import { runSlot, slotLabel } from '@/lib/battle-utils';
 import { judgeTranscripts } from '@/services/gemini';
 import { updateBatchItem, updateBatchSession } from '@/lib/batch-db';
+import { prepareAudioFile } from '@/lib/audio-trimmer';
 
 /** Clamp all scores in a verdict to 0-10 range */
 function clampVerdict(v: BattleVerdict): BattleVerdict {
@@ -143,10 +144,23 @@ export class BatchProcessor {
 
     const noop = () => {};
 
+    // Trim audio if needed
+    let fileToUse = file;
+    try {
+      const prep = await prepareAudioFile(file, this.config.maxChunkDuration);
+      fileToUse = prep.file;
+      item.originalDuration = prep.originalDuration;
+      item.wasTrimmed = prep.wasTrimmed;
+      item.trimmedDuration = prep.trimmedDuration;
+    } catch (err) {
+      item.trimError = `Audio prep failed: ${(err as Error).message}`;
+    }
+    this.callbacks.onItemUpdate({ ...item });
+
     // Run both slots concurrently with individual timing
     const timed = async (cfg: typeof this.config.slotA) => {
       const start = Date.now();
-      const result = await runSlot(file, cfg, noop, noop);
+      const result = await runSlot(fileToUse, cfg, noop, noop);
       return { ...result, timeMs: Date.now() - start };
     };
 

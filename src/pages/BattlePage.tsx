@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import {
-  Swords, Loader2, Trophy, Minus, AlertCircle, Clock, FileText, RotateCcw, Languages, Download,
+  Swords, Loader2, Trophy, Minus, AlertCircle, Clock, FileText, RotateCcw, Languages, Download, Scissors,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type {
@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { cn, downloadCsv } from '@/lib/utils';
 import { SERVICE_META, MODEL_OPTIONS, DEFAULT_SLOT_A, DEFAULT_SLOT_B, slotLabel, runSlot, ORISTT_LANGUAGES } from '@/lib/battle-utils';
+import { prepareAudioFile, type AudioPrepResult } from '@/lib/audio-trimmer';
 
 const IDLE_RESULT: BattleSlotResult = { status: 'idle', transcript: null, timeTakenMs: null, error: null };
 
@@ -435,6 +436,8 @@ export default function BattlePage() {
   const [showTranslation, setShowTranslation] = useState(false);
   const [translating, setTranslating] = useState(false);
   const [fileNameHint, setFileNameHint] = useState<string | null>(null);
+  const [maxChunkDuration, setMaxChunkDuration] = useState(30);
+  const [audioPrepInfo, setAudioPrepInfo] = useState<{ originalDuration: number; wasTrimmed: boolean; trimmedDuration: number } | null>(null);
 
   const isRunning = slotAResult.status === 'running' || slotBResult.status === 'running' || judging;
   const isRunningRef = useRef(false);
@@ -464,6 +467,8 @@ export default function BattlePage() {
       if (s.cachedTranslationB !== undefined) setCachedTranslationB(s.cachedTranslationB);
       if (s.showTranslation !== undefined) setShowTranslation(s.showTranslation);
       if (s.fileNameHint) setFileNameHint(s.fileNameHint);
+      if (s.maxChunkDuration) setMaxChunkDuration(s.maxChunkDuration);
+      if (s.audioPrepInfo) setAudioPrepInfo(s.audioPrepInfo);
       // Detect judging-interrupted: slots done but no verdict
       const aIsDone = s.slotAResult?.status === 'done';
       const bIsDone = s.slotBResult?.status === 'done';
@@ -483,13 +488,13 @@ export default function BattlePage() {
       sessionStorage.setItem('stt_battle_state', JSON.stringify({
         slotAConfig, slotBConfig, slotAResult, slotBResult,
         verdict, judgeModel, judgeEnabled, cachedTranslationA, cachedTranslationB,
-        showTranslation, fileNameHint,
+        showTranslation, fileNameHint, maxChunkDuration, audioPrepInfo,
       }));
     } catch {
       // Storage full — ignore
     }
   }, [slotAConfig, slotBConfig, slotAResult, slotBResult, verdict, judgeModel, judgeEnabled,
-      cachedTranslationA, cachedTranslationB, showTranslation, fileNameHint]);
+      cachedTranslationA, cachedTranslationB, showTranslation, fileNameHint, maxChunkDuration, audioPrepInfo]);
 
   // ── beforeunload guard ──
   useEffect(() => {
@@ -561,6 +566,21 @@ export default function BattlePage() {
     setCachedTranslationA(null);
     setCachedTranslationB(null);
     setShowTranslation(false);
+    setAudioPrepInfo(null);
+
+    // Trim audio if needed
+    let fileToProcess: File = file;
+    try {
+      const prep = await prepareAudioFile(file, maxChunkDuration);
+      fileToProcess = prep.file;
+      setAudioPrepInfo({
+        originalDuration: prep.originalDuration,
+        wasTrimmed: prep.wasTrimmed,
+        trimmedDuration: prep.trimmedDuration,
+      });
+    } catch {
+      // Non-fatal — fall back to original file
+    }
 
     const start = Date.now();
 
@@ -579,8 +599,8 @@ export default function BattlePage() {
     let endB: number | null = null;
 
     const [resA, resB] = await Promise.allSettled([
-      runSlot(file, slotAConfig, onChunkA, onStatusA).finally(() => { endA = Date.now(); }),
-      runSlot(file, slotBConfig, onChunkB, onStatusB).finally(() => { endB = Date.now(); }),
+      runSlot(fileToProcess, slotAConfig, onChunkA, onStatusA).finally(() => { endA = Date.now(); }),
+      runSlot(fileToProcess, slotBConfig, onChunkB, onStatusB).finally(() => { endB = Date.now(); }),
     ]);
 
     const resultA: BattleSlotResult =
@@ -635,6 +655,9 @@ export default function BattlePage() {
     // Header
     const header: string[] = [
       'File Name',
+      'Original Duration (s)',
+      'Was Trimmed',
+      'Used Duration (s)',
       // Slot A config
       'Slot A Service',
       'Slot A Model',
@@ -677,6 +700,9 @@ export default function BattlePage() {
 
     const row: (string | number | null)[] = [
       fileName,
+      audioPrepInfo ? Number(audioPrepInfo.originalDuration.toFixed(1)) : null,
+      audioPrepInfo ? (audioPrepInfo.wasTrimmed ? 'Yes' : 'No') : null,
+      audioPrepInfo ? Number(audioPrepInfo.trimmedDuration.toFixed(1)) : null,
       // Slot A config
       SERVICE_META[slotAConfig.service].label,
       MODEL_OPTIONS[slotAConfig.service].find(m => m.value === slotAConfig.model)?.label ?? slotAConfig.model,
@@ -770,7 +796,7 @@ export default function BattlePage() {
         <CardContent className="pt-4 space-y-3">
           <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Step 3</span>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <div className="flex items-center gap-3 flex-1">
+            <div className="flex items-center gap-3 flex-1 flex-wrap">
               <div className="flex items-center gap-2">
                 <Switch
                   id="judge-toggle"
@@ -795,6 +821,18 @@ export default function BattlePage() {
                   </Select>
                 </div>
               )}
+              <div className="flex items-center gap-2">
+                <Label className="text-xs text-muted-foreground whitespace-nowrap">Max Duration (s)</Label>
+                <input
+                  type="number"
+                  min={5}
+                  max={300}
+                  value={maxChunkDuration}
+                  onChange={e => setMaxChunkDuration(Math.max(5, Math.min(300, Number(e.target.value) || 5)))}
+                  className="w-16 h-8 rounded-md border border-input bg-background px-2 text-xs text-center"
+                  disabled={isRunning}
+                />
+              </div>
             </div>
             <div className="flex gap-2">
               {(slotAResult.status !== 'idle' || slotBResult.status !== 'idle') && (
@@ -825,6 +863,14 @@ export default function BattlePage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Trim info banner */}
+      {audioPrepInfo?.wasTrimmed && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 px-4 py-2 text-xs text-amber-800 dark:text-amber-300">
+          <Scissors className="h-3.5 w-3.5 flex-shrink-0" />
+          Audio trimmed: original {audioPrepInfo.originalDuration.toFixed(1)}s → last {audioPrepInfo.trimmedDuration.toFixed(1)}s sent to STT services
+        </div>
+      )}
 
       {/* Results — side by side */}
       {(slotAResult.status !== 'idle' || slotBResult.status !== 'idle') && (

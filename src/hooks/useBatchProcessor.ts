@@ -46,6 +46,8 @@ export function useBatchProcessor() {
     judgeEnabled: boolean,
     judgeModel: string,
     concurrency: number,
+    maxChunkDuration: number,
+    includeFullTranscripts: boolean,
   ) => {
     const batchId = crypto.randomUUID();
     const batchConfig: BatchConfig = {
@@ -58,6 +60,8 @@ export function useBatchProcessor() {
       concurrency,
       totalItems: sources.length,
       inputType: sources[0]?.sourceUrl ? 'excel' : 'zip',
+      maxChunkDuration,
+      includeFullTranscripts,
     };
 
     const batchItems: BatchItem[] = sources.map((src, i) => ({
@@ -75,6 +79,10 @@ export function useBatchProcessor() {
       slotBError: null,
       verdict: null,
       judgeError: null,
+      originalDuration: null,
+      wasTrimmed: null,
+      trimmedDuration: null,
+      trimError: null,
     }));
 
     const session: BatchSession = {

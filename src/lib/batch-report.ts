@@ -93,8 +93,11 @@ function setRow(ws: XLSX.WorkSheet, r: number, values: unknown[], styles: CellSt
 // ─── Results Sheet ───────────────────────────────────────────────────────────
 
 function buildResultsSheet(config: BatchConfig, items: BatchItem[]): XLSX.WorkSheet {
+  const includeTranscripts = config.includeFullTranscripts !== false;
   const headers = [
-    '#', 'File Name', 'Source URL', 'Status',
+    '#', 'File Name', 'Source URL',
+    'Orig Duration (s)', 'Trimmed', 'Used Duration (s)', 'Trim Error',
+    'Status',
     'A Service', 'A Model', 'A Language',
     'B Service', 'B Model', 'B Language',
     'A Time (s)', 'A Words', 'A Error',
@@ -107,7 +110,7 @@ function buildResultsSheet(config: BatchConfig, items: BatchItem[]): XLSX.WorkSh
     'Proper Nouns A', 'Proper Nouns B',
     'Readability A', 'Readability B',
     'Judge Error',
-    'Transcript A', 'Transcript B',
+    ...(includeTranscripts ? ['Transcript A', 'Transcript B'] : []),
   ];
 
   const labelA = slotLabel(config.slotA);
@@ -133,9 +136,15 @@ function buildResultsSheet(config: BatchConfig, items: BatchItem[]): XLSX.WorkSh
 
     const baseRow: CellStyle = { ...cellBase, fill: rowBg };
     const centeredRow: CellStyle = { ...baseRow, alignment: { horizontal: 'center', vertical: 'center' } };
+    const errorStyle: CellStyle = { ...baseRow, font: { ...cellBase.font, color: { rgb: COLORS.redFg } } };
 
     const values: unknown[] = [
-      item.index + 1, item.fileName, item.sourceUrl ?? '', item.status,
+      item.index + 1, item.fileName, item.sourceUrl ?? '',
+      item.originalDuration != null ? Number(item.originalDuration.toFixed(1)) : '',
+      item.wasTrimmed != null ? (item.wasTrimmed ? 'Yes' : 'No') : '',
+      item.trimmedDuration != null ? Number(item.trimmedDuration.toFixed(1)) : '',
+      item.trimError ?? '',
+      item.status,
       SERVICE_META[config.slotA.service].label,
       MODEL_OPTIONS[config.slotA.service].find(m => m.value === config.slotA.model)?.label ?? config.slotA.model,
       config.slotA.language,
@@ -154,7 +163,7 @@ function buildResultsSheet(config: BatchConfig, items: BatchItem[]): XLSX.WorkSh
       fb('Proper Noun Handling')?.scoreA ?? '', fb('Proper Noun Handling')?.scoreB ?? '',
       fb('Readability & Naturalness')?.scoreA ?? '', fb('Readability & Naturalness')?.scoreB ?? '',
       item.judgeError ?? '',
-      item.slotATranscript ?? '', item.slotBTranscript ?? '',
+      ...(includeTranscripts ? [item.slotATranscript ?? '', item.slotBTranscript ?? ''] : []),
     ];
 
     // Column-specific styles
@@ -162,13 +171,17 @@ function buildResultsSheet(config: BatchConfig, items: BatchItem[]): XLSX.WorkSh
       centeredRow,               // #
       baseRow,                   // File Name
       { ...baseRow, font: { ...cellBase.font, color: { rgb: COLORS.mutedFg } } }, // URL
+      centeredRow,               // Orig Duration
+      centeredRow,               // Trimmed
+      centeredRow,               // Used Duration
+      errorStyle,                // Trim Error
       statusStyle(item.status),  // Status
       baseRow, baseRow, centeredRow,  // A config
       baseRow, baseRow, centeredRow,  // B config
       centeredRow, centeredRow,  // A time, words
-      { ...baseRow, font: { ...cellBase.font, color: { rgb: COLORS.redFg } } }, // A error
+      errorStyle,                // A error
       centeredRow, centeredRow,  // B time, words
-      { ...baseRow, font: { ...cellBase.font, color: { rgb: COLORS.redFg } } }, // B error
+      errorStyle,                // B error
       { ...centeredRow, font: { bold: true, sz: 11, name: 'Calibri' } },  // Winner
       centeredRow,               // Winner label
       { ...scoreStyle(v?.scoreA ?? '', true), fill: rowBg },    // Score A
@@ -186,9 +199,11 @@ function buildResultsSheet(config: BatchConfig, items: BatchItem[]): XLSX.WorkSh
       { ...scoreStyle(fb('Proper Noun Handling')?.scoreB ?? '', false), fill: rowBg },
       { ...scoreStyle(fb('Readability & Naturalness')?.scoreA ?? '', true), fill: rowBg },
       { ...scoreStyle(fb('Readability & Naturalness')?.scoreB ?? '', false), fill: rowBg },
-      { ...baseRow, font: { ...cellBase.font, color: { rgb: COLORS.redFg } } }, // Judge error
-      { ...baseRow, alignment: { wrapText: true, vertical: 'center' } },  // Transcript A
-      { ...baseRow, alignment: { wrapText: true, vertical: 'center' } },  // Transcript B
+      errorStyle,                // Judge error
+      ...(includeTranscripts ? [
+        { ...baseRow, alignment: { wrapText: true, vertical: 'center' } },  // Transcript A
+        { ...baseRow, alignment: { wrapText: true, vertical: 'center' } },  // Transcript B
+      ] : []),
     ];
 
     setRow(ws, r, values, styles);
@@ -196,7 +211,9 @@ function buildResultsSheet(config: BatchConfig, items: BatchItem[]): XLSX.WorkSh
 
   // Column widths
   ws['!cols'] = [
-    { wch: 5 }, { wch: 40 }, { wch: 35 }, { wch: 8 },
+    { wch: 5 }, { wch: 40 }, { wch: 35 },
+    { wch: 14 }, { wch: 8 }, { wch: 14 }, { wch: 22 },
+    { wch: 8 },
     { wch: 12 }, { wch: 22 }, { wch: 8 },
     { wch: 12 }, { wch: 22 }, { wch: 8 },
     { wch: 10 }, { wch: 8 }, { wch: 25 },
@@ -207,7 +224,7 @@ function buildResultsSheet(config: BatchConfig, items: BatchItem[]): XLSX.WorkSh
     { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
     { wch: 12 }, { wch: 12 },
     { wch: 25 },
-    { wch: 50 }, { wch: 50 },
+    ...(includeTranscripts ? [{ wch: 50 }, { wch: 50 }] : []),
   ];
 
   // Set range
@@ -302,6 +319,8 @@ function buildSummarySheet(config: BatchConfig, items: BatchItem[]): XLSX.WorkSh
     ['Slot B', labelB],
     ['Judge', config.judgeEnabled ? `Yes (${config.judgeModel})` : 'No'],
     ['Concurrency', config.concurrency],
+    ['Max Chunk Duration', `${config.maxChunkDuration ?? 30}s`],
+    ['Include Transcripts', (config.includeFullTranscripts !== false) ? 'Yes' : 'No'],
   ];
   for (const [label, val] of configRows) {
     setCell(ws, row, 0, label, labelStyle);
@@ -322,6 +341,29 @@ function buildSummarySheet(config: BatchConfig, items: BatchItem[]): XLSX.WorkSh
     ['Pending/Skipped', items.filter(i => i.status === 'pending' || i.status === 'skipped').length],
   ];
   for (const [label, val] of resultsRows) {
+    setCell(ws, row, 0, label, labelStyle);
+    setCell(ws, row, 1, val, valueStyle);
+    row++;
+  }
+  row++;
+
+  // Trim stats
+  const withDuration = completed.filter(i => i.originalDuration != null);
+  const trimmedItems = completed.filter(i => i.wasTrimmed);
+  setCell(ws, row, 0, 'Audio Trim Stats', sectionStyle);
+  setCell(ws, row, 1, '', sectionStyle);
+  setCell(ws, row, 2, '', sectionStyle);
+  row++;
+  const trimRows: [string, string | number][] = [
+    ['Files Trimmed', `${trimmedItems.length} / ${withDuration.length}`],
+    ['Avg Original Duration', withDuration.length > 0
+      ? `${(withDuration.reduce((s, i) => s + (i.originalDuration ?? 0), 0) / withDuration.length).toFixed(1)}s`
+      : '-'],
+    ['Avg Used Duration', withDuration.length > 0
+      ? `${(withDuration.reduce((s, i) => s + (i.trimmedDuration ?? i.originalDuration ?? 0), 0) / withDuration.length).toFixed(1)}s`
+      : '-'],
+  ];
+  for (const [label, val] of trimRows) {
     setCell(ws, row, 0, label, labelStyle);
     setCell(ws, row, 1, val, valueStyle);
     row++;

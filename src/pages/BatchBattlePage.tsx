@@ -242,6 +242,8 @@ export default function BatchBattlePage() {
   const [judgeEnabled, setJudgeEnabled] = useState(true);
   const [judgeModel, setJudgeModel] = useState('gemini-2.5-flash');
   const [concurrency, setConcurrency] = useState(2);
+  const [maxChunkDuration, setMaxChunkDuration] = useState(30);
+  const [includeFullTranscripts, setIncludeFullTranscripts] = useState(true);
   const [sources, setSources] = useState<AudioSource[]>([]);
   const [inputFile, setInputFile] = useState<File | null>(null);
   const [parsing, setParsing] = useState(false);
@@ -301,7 +303,7 @@ export default function BatchBattlePage() {
   const handleStartBatch = async () => {
     if (sources.length === 0) return;
     try {
-      await startBatch(sources, slotAConfig, slotBConfig, judgeEnabled, judgeModel, concurrency);
+      await startBatch(sources, slotAConfig, slotBConfig, judgeEnabled, judgeModel, concurrency, maxChunkDuration, includeFullTranscripts);
     } catch (err) {
       toast.error('Batch failed', { description: (err as Error).message });
     }
@@ -495,6 +497,24 @@ export default function BatchBattlePage() {
                       <SelectItem value="3">3</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-muted-foreground whitespace-nowrap">Max Duration (s)</Label>
+                  <input
+                    type="number"
+                    min={5}
+                    max={300}
+                    value={maxChunkDuration}
+                    onChange={e => setMaxChunkDuration(Math.max(5, Math.min(300, Number(e.target.value) || 5)))}
+                    className="w-16 h-8 rounded-md border border-input bg-background px-2 text-xs text-center"
+                    disabled={isRunning}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch id="include-transcripts" checked={includeFullTranscripts} onCheckedChange={setIncludeFullTranscripts} disabled={isRunning} />
+                  <Label className="text-xs text-muted-foreground whitespace-nowrap cursor-pointer" htmlFor="include-transcripts">
+                    Transcripts in Report
+                  </Label>
                 </div>
               </div>
               <Button
