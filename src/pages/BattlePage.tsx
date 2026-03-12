@@ -20,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { cn, downloadCsv } from '@/lib/utils';
 import { SERVICE_META, MODEL_OPTIONS, DEFAULT_SLOT_A, DEFAULT_SLOT_B, slotLabel, runSlot, ORISTT_LANGUAGES } from '@/lib/battle-utils';
-import { prepareAudioFile, type AudioPrepResult } from '@/lib/audio-trimmer';
+import { prepareAudioFile } from '@/lib/audio-trimmer';
 
 const IDLE_RESULT: BattleSlotResult = { status: 'idle', transcript: null, timeTakenMs: null, error: null };
 
