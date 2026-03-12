@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import type { BatchItem, BatchConfig, BatchState, AudioSource, BatchSession } from '@/types/batch';
 import type { BattleSlotConfig } from '@/types';
 import { BatchProcessor } from '@/lib/batch-processor';
@@ -145,6 +145,20 @@ export function useBatchProcessor() {
     processorRef.current?.pause();
   }, []);
 
+  const resume = useCallback(async () => {
+    if (!config || !processorRef.current) return;
+    const currentItems = Array.from(items.values()).sort((a, b) => a.index - b.index);
+    const processor = new BatchProcessor(config, currentItems, sourcesRef.current, {
+      onItemUpdate: updateItem,
+      onStateChange: setBatchState,
+      onProgress: (processed, errors) => {
+        setProgress(prev => ({ ...prev, processed, errors }));
+      },
+    });
+    processorRef.current = processor;
+    await processor.start();
+  }, [config, items, updateItem]);
+
   const reset = useCallback(async () => {
     processorRef.current?.pause();
     processorRef.current = null;
@@ -165,7 +179,10 @@ export function useBatchProcessor() {
     }
   }, [recoveryBatch]);
 
-  const itemsArray = Array.from(items.values()).sort((a, b) => a.index - b.index);
+  const itemsArray = useMemo(
+    () => Array.from(items.values()).sort((a, b) => a.index - b.index),
+    [items],
+  );
 
   return {
     batchState,
@@ -175,6 +192,7 @@ export function useBatchProcessor() {
     recoveryBatch,
     startBatch,
     resumeBatch,
+    resume,
     pause,
     reset,
     dismissRecovery,

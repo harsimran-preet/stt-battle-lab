@@ -179,8 +179,8 @@ function BatchProgressTable({
         style={{ height: Math.min(TABLE_HEIGHT, totalHeight + 2) }}
       >
         <div style={{ height: totalHeight, position: 'relative' }}>
-          {visibleItems.map((item) => {
-            const actualIndex = filtered.indexOf(item);
+          {visibleItems.map((item, i) => {
+            const actualIndex = startIndex + i;
             return (
               <div
                 key={item.index}
@@ -251,7 +251,7 @@ export default function BatchBattlePage() {
 
   const {
     batchState, items, progress, config,
-    recoveryBatch, startBatch, pause, reset, dismissRecovery,
+    recoveryBatch, startBatch, resume, pause, reset, dismissRecovery,
   } = useBatchProcessor();
 
   const isRunning = batchState === 'running';
@@ -320,17 +320,20 @@ export default function BatchBattlePage() {
   };
 
   // ── Aggregate stats ──
-  const completed = items.filter(i => i.status === 'done');
-  const withVerdict = completed.filter(i => i.verdict);
-  const aWins = withVerdict.filter(i => i.verdict!.winner === 'A').length;
-  const bWins = withVerdict.filter(i => i.verdict!.winner === 'B').length;
-  const ties = withVerdict.filter(i => i.verdict!.winner === 'tie').length;
-  const avgScoreA = withVerdict.length > 0
-    ? (withVerdict.reduce((s, i) => s + i.verdict!.scoreA, 0) / withVerdict.length).toFixed(1)
-    : '-';
-  const avgScoreB = withVerdict.length > 0
-    ? (withVerdict.reduce((s, i) => s + i.verdict!.scoreB, 0) / withVerdict.length).toFixed(1)
-    : '-';
+  const { withVerdict, aWins, bWins, ties, avgScoreA, avgScoreB } = useMemo(() => {
+    const completed = items.filter(i => i.status === 'done');
+    const withVerdict = completed.filter(i => i.verdict);
+    const aWins = withVerdict.filter(i => i.verdict!.winner === 'A').length;
+    const bWins = withVerdict.filter(i => i.verdict!.winner === 'B').length;
+    const ties = withVerdict.filter(i => i.verdict!.winner === 'tie').length;
+    const avgScoreA = withVerdict.length > 0
+      ? (withVerdict.reduce((s, i) => s + i.verdict!.scoreA, 0) / withVerdict.length).toFixed(1)
+      : '-';
+    const avgScoreB = withVerdict.length > 0
+      ? (withVerdict.reduce((s, i) => s + i.verdict!.scoreB, 0) / withVerdict.length).toFixed(1)
+      : '-';
+    return { completed, withVerdict, aWins, bWins, ties, avgScoreA, avgScoreB };
+  }, [items]);
 
   // ETA
   const avgTimePerItem = progress.processed > 0 && config
@@ -547,7 +550,7 @@ export default function BatchBattlePage() {
                     </Button>
                   )}
                   {batchState === 'paused' && (
-                    <Button size="sm" onClick={handleStartBatch} className="gap-1.5">
+                    <Button size="sm" onClick={resume} className="gap-1.5">
                       <Play className="h-3.5 w-3.5" />
                       Resume
                     </Button>
@@ -609,11 +612,11 @@ export default function BatchBattlePage() {
                 <CardContent className="space-y-3">
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                     <div className="rounded-lg border p-3 text-center">
-                      <p className="text-[10px] font-semibold uppercase text-muted-foreground">A Wins</p>
+                      <p className="text-[10px] font-semibold uppercase text-muted-foreground">{config ? slotLabel(config.slotA) : 'A'} Wins</p>
                       <p className="text-lg font-bold text-blue-600 dark:text-blue-400 tabular-nums">{aWins}</p>
                     </div>
                     <div className="rounded-lg border p-3 text-center">
-                      <p className="text-[10px] font-semibold uppercase text-muted-foreground">B Wins</p>
+                      <p className="text-[10px] font-semibold uppercase text-muted-foreground">{config ? slotLabel(config.slotB) : 'B'} Wins</p>
                       <p className="text-lg font-bold text-orange-600 dark:text-orange-400 tabular-nums">{bWins}</p>
                     </div>
                     <div className="rounded-lg border p-3 text-center">
@@ -621,11 +624,11 @@ export default function BatchBattlePage() {
                       <p className="text-lg font-bold text-muted-foreground tabular-nums">{ties}</p>
                     </div>
                     <div className="rounded-lg border p-3 text-center">
-                      <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg Score A</p>
+                      <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg {config ? slotLabel(config.slotA) : 'A'}</p>
                       <p className="text-lg font-bold text-blue-600 dark:text-blue-400 tabular-nums">{avgScoreA}</p>
                     </div>
                     <div className="rounded-lg border p-3 text-center">
-                      <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg Score B</p>
+                      <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg {config ? slotLabel(config.slotB) : 'B'}</p>
                       <p className="text-lg font-bold text-orange-600 dark:text-orange-400 tabular-nums">{avgScoreB}</p>
                     </div>
                   </div>
@@ -634,8 +637,8 @@ export default function BatchBattlePage() {
                   {withVerdict.length > 0 && (
                     <div className="space-y-1.5">
                       <div className="flex justify-between text-[10px] text-muted-foreground">
-                        <span>A: {((aWins / withVerdict.length) * 100).toFixed(0)}%</span>
-                        <span>B: {((bWins / withVerdict.length) * 100).toFixed(0)}%</span>
+                        <span>{config ? slotLabel(config.slotA) : 'A'}: {((aWins / withVerdict.length) * 100).toFixed(0)}%</span>
+                        <span>{config ? slotLabel(config.slotB) : 'B'}: {((bWins / withVerdict.length) * 100).toFixed(0)}%</span>
                       </div>
                       <div className="flex h-3 w-full overflow-hidden rounded-full">
                         <div className="bg-blue-500 transition-all" style={{ width: `${(aWins / withVerdict.length) * 100}%` }} />

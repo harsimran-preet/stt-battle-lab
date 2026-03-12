@@ -1,11 +1,18 @@
 import JSZip from 'jszip';
-import * as XLSX from 'xlsx';
+import XLSX from 'xlsx-js-style';
 import type { AudioSource } from '@/types/batch';
 
 const AUDIO_EXTENSIONS = new Set([
   '.mp3', '.wav', '.m4a', '.flac', '.ogg', '.webm', '.aac', '.opus',
   '.mp4', '.mkv', '.mov', '.avi',
 ]);
+
+const VIDEO_EXTENSIONS = new Set(['.mp4', '.mkv', '.mov', '.avi']);
+
+function mimeForExtension(ext: string): string {
+  if (VIDEO_EXTENSIONS.has(ext)) return `video/${ext.slice(1)}`;
+  return `audio/${ext.slice(1)}`;
+}
 
 function getExtension(name: string): string {
   const dot = name.lastIndexOf('.');
@@ -33,7 +40,7 @@ export async function parseZipInput(file: File): Promise<AudioSource[]> {
       fileName,
       getFile: async () => {
         const blob = await entry.async('blob');
-        return new File([blob], fileName, { type: `audio/${ext.slice(1)}` });
+        return new File([blob], fileName, { type: mimeForExtension(ext) });
       },
     });
   });
@@ -69,6 +76,7 @@ export async function parseExcelInput(file: File): Promise<AudioSource[]> {
   for (let i = 0; i < rows.length; i++) {
     const url = String(rows[i][colKey] ?? '').trim();
     if (!url) continue;
+    if (!/^https?:\/\//i.test(url)) continue;
 
     const fileName = getBaseName(url) || `recording-${i + 1}.mp3`;
     sources.push({
@@ -81,7 +89,7 @@ export async function parseExcelInput(file: File): Promise<AudioSource[]> {
         }
         const blob = await response.blob();
         const ext = getExtension(fileName);
-        return new File([blob], fileName, { type: blob.type || `audio/${ext.slice(1) || 'mp3'}` });
+        return new File([blob], fileName, { type: blob.type || mimeForExtension(ext || '.mp3') });
       },
     });
   }

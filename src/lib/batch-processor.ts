@@ -1,7 +1,23 @@
 import type { BatchItem, BatchConfig, BatchState, AudioSource } from '@/types/batch';
+import type { BattleVerdict } from '@/types';
 import { runSlot, slotLabel } from '@/lib/battle-utils';
 import { judgeTranscripts } from '@/services/gemini';
 import { updateBatchItem, updateBatchSession } from '@/lib/batch-db';
+
+/** Clamp all scores in a verdict to 0-10 range */
+function clampVerdict(v: BattleVerdict): BattleVerdict {
+  const c = (n: number) => Math.max(0, Math.min(10, n));
+  return {
+    ...v,
+    scoreA: c(v.scoreA),
+    scoreB: c(v.scoreB),
+    factors: v.factors.map(f => ({
+      ...f,
+      scoreA: c(f.scoreA),
+      scoreB: c(f.scoreB),
+    })),
+  };
+}
 
 export interface BatchProcessorCallbacks {
   onItemUpdate: (item: BatchItem) => void;
@@ -99,7 +115,7 @@ export class BatchProcessor {
       processedCount: this.processedCount,
       errorCount: this.errorCount,
       ...(state === 'paused' ? { pausedAt: new Date().toISOString() } : {}),
-    }).catch(() => {});
+    }).catch(e => console.warn('[batch-db]', e));
   }
 
   private async processItem(index: number): Promise<void> {
@@ -121,29 +137,34 @@ export class BatchProcessor {
       this.errorCount++;
       this.callbacks.onItemUpdate({ ...item });
       this.callbacks.onProgress(this.processedCount, this.errorCount);
-      await updateBatchItem(item).catch(() => {});
+      await updateBatchItem(item).catch(e => console.warn('[batch-db]', e));
       return;
     }
 
-    const start = Date.now();
     const noop = () => {};
 
-    // Run both slots concurrently
+    // Run both slots concurrently with individual timing
+    const timed = async (cfg: typeof this.config.slotA) => {
+      const start = Date.now();
+      const result = await runSlot(file, cfg, noop, noop);
+      return { ...result, timeMs: Date.now() - start };
+    };
+
     const [resA, resB] = await Promise.allSettled([
-      runSlot(file, this.config.slotA, noop, noop),
-      runSlot(file, this.config.slotB, noop, noop),
+      timed(this.config.slotA),
+      timed(this.config.slotB),
     ]);
 
     if (resA.status === 'fulfilled') {
       item.slotATranscript = resA.value.transcript;
-      item.slotATimeMs = Date.now() - start;
+      item.slotATimeMs = resA.value.timeMs;
     } else {
       item.slotAError = (resA.reason as Error).message;
     }
 
     if (resB.status === 'fulfilled') {
       item.slotBTranscript = resB.value.transcript;
-      item.slotBTimeMs = Date.now() - start;
+      item.slotBTimeMs = resB.value.timeMs;
     } else {
       item.slotBError = (resB.reason as Error).message;
     }
@@ -154,7 +175,7 @@ export class BatchProcessor {
     // Judge if enabled and we have transcripts
     if (this.config.judgeEnabled && hasAnyTranscript) {
       try {
-        item.verdict = await judgeTranscripts(
+        const raw = await judgeTranscripts(
           slotLabel(this.config.slotA),
           item.slotATranscript ?? '(failed)',
           slotLabel(this.config.slotB),
@@ -162,6 +183,7 @@ export class BatchProcessor {
           item.fileName,
           this.config.judgeModel,
         );
+        item.verdict = clampVerdict(raw);
       } catch (err) {
         item.judgeError = (err as Error).message;
       }
@@ -173,6 +195,6 @@ export class BatchProcessor {
 
     this.callbacks.onItemUpdate({ ...item });
     this.callbacks.onProgress(this.processedCount, this.errorCount);
-    await updateBatchItem(item).catch(() => {});
+    await updateBatchItem(item).catch(e => console.warn('[batch-db]', e));
   }
 }

@@ -256,7 +256,19 @@ Return ONLY a valid JSON object with this exact structure:
     throw new Error('Gemini judge returned an unexpected response format');
   }
 
-  return JSON.parse(jsonMatch[0]) as BattleVerdict;
+  const parsed = JSON.parse(jsonMatch[0]) as BattleVerdict;
+  // Clamp all scores to 0-10 (Gemini sometimes returns values outside this range)
+  const clamp = (n: number) => Math.max(0, Math.min(10, n));
+  return {
+    ...parsed,
+    scoreA: clamp(parsed.scoreA),
+    scoreB: clamp(parsed.scoreB),
+    factors: parsed.factors.map(f => ({
+      ...f,
+      scoreA: clamp(f.scoreA),
+      scoreB: clamp(f.scoreB),
+    })),
+  };
 }
 
 function formatTime(seconds: number): string {
